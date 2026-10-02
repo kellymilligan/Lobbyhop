@@ -1,6 +1,6 @@
 /**
  * Node room server: rooms over WebSocket (`ws`), plus your built game.
- * Run: `node --experimental-strip-types server.ts` (Node 22.6+) or bundle it.
+ * Run: `npx tsx server.ts`, or bundle it with esbuild (see the Dockerfile).
  * Hosts: Fly.io, Railway, Render, any VPS or Docker host.
  */
 import { createNodeServer } from 'lobbyhop/node';

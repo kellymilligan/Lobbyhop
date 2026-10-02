@@ -1,0 +1,24 @@
+# lobbyhop
+
+> Agent-first multiplayer for browser games and experiences. Share a link, play together. One game definition (rules as plain functions) is shared by browser and server; lobbyhop provides rooms (URL codes, lobby, reconnect, host, spectators, chat), sync (lockstep or authoritative state sync), hosting (Cloudflare Durable Objects or Node) and tests (in-memory network harness, N-browser e2e, cross-engine determinism).
+
+To integrate, follow skills/lobbyhop/SKILL.md. Docs ship in the package: `npx lobbyhop docs ls`, `npx lobbyhop docs cat <name>`.
+
+## Docs
+
+- [Integration skill](skills/lobbyhop/SKILL.md): step-by-step recipe for agents
+- [Guide](docs/GUIDE.md): concepts, game definition, client wiring, hosting, testing, retrofitting
+- [Choosing a sync model](docs/CHOOSING.md): lockstep vs state sync, genres, tick rates, latency
+- [Determinism](docs/DETERMINISM.md): the lockstep contract, audit, cross-engine verification
+- [Deploy](docs/DEPLOY.md): Cloudflare, Node (Fly, Railway, Render, Docker), scaling, costs
+- [API reference](docs/API.md): every export by entry point
+- [Protocol](docs/PROTOCOL.md): wire messages and turn semantics
+- [Troubleshooting](docs/TROUBLESHOOTING.md): symptoms, fixes, known pitfalls
+- [Roadmap](docs/ROADMAP.md): replays, matchmaking, accounts, anti-cheat, voice, prediction, rollback
+
+## Examples
+
+- [counter](examples/counter/game.ts): smallest lockstep game
+- [arena](examples/arena/game.ts): real-time lockstep, interpolation, ghosts, bots
+- [tictactoe](examples/tictactoe/game.ts): turn-based state sync
+- [cursors](examples/cursors/game.ts): lobby-less real-time state sync

@@ -70,6 +70,7 @@
     "skills",
     "templates",
     "examples",
+    "!examples/**/.wrangler",
     "tools",
     "llms.txt",
     "AGENTS.md"

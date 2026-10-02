@@ -168,7 +168,7 @@ Next:
        const room = joinRoom(game, { room: getRoomCode()!, host: import.meta.env.VITE_ROOM_HOST });
        mountLobby(room, { title: '${name}' }); mountStatus(room);
        // each frame: const { state, alpha, events } = room.advance(dt);  input: room.submit(cmd)
-  4. Run: ${host === 'node' ? 'build, then node server.ts' : 'vite build && npx wrangler dev   (or vite + wrangler dev side by side)'}
+  4. Run: ${host === 'node' ? 'vite build && npx tsx server.ts' : 'vite build && npx wrangler dev   (or vite + wrangler dev side by side)'}
   5. Deploy: npx lobbyhop docs cat DEPLOY.md`);
     break;
   }
@@ -204,8 +204,8 @@ Next:
       writeFileSync(wr, w);
     }
     console.log(`Copied ${name} to ${relative(process.cwd(), dest) || '.'}.
-Build the page with Vite (root: that folder, outDir: dist), then \`npx wrangler dev\` in it,
-or run server.ts with Node. See its README in docs/GUIDE.md#examples.`);
+In that folder: \`npx vite build --outDir dist\`, then \`npx wrangler dev\` (or \`npx tsx server.ts\`).
+Open http://localhost:8787 in two windows.`);
     break;
   }
 
