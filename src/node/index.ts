@@ -225,6 +225,10 @@ export function createNodeServer<G extends AnyGame>(game: G, options: NodeServer
       return;
     }
     const url = new URL(req.url ?? '/', 'http://x');
+    if (url.pathname.startsWith(prefix + '/')) {
+      res.writeHead(426, { 'content-type': 'text/plain' }).end('Expected a WebSocket upgrade');
+      return;
+    }
     let file = resolve(join(staticDir, decodeURIComponent(url.pathname)));
     if (file !== staticDir && !file.startsWith(staticDir + sep)) {
       res.writeHead(403).end();

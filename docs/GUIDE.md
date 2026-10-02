@@ -115,7 +115,7 @@ A game definition is a plain object shared by client and server. Wrap it in
 | `name` | yes | Short id. Clients for another game (or version) can't join. |
 | `version` | | Bump it when state or command shapes change. Out-of-date clients are asked to refresh. Default 1. |
 | `tickRate` | yes | Ticks per second. Lockstep: 20–60. State sync: 0 means event-driven (turn-based); 10–30 for real-time. |
-| `create({ seed, seats, settings })` | yes | Builds the starting state. `seats` are the humans present (`{ seat, name, colour, meta }`). Seed your RNG from `seed`. |
+| `create({ seed, seats, settings })` | yes | Builds the starting state. `seats` are the humans present (`{ seat, name, colour, meta }`), always numbered 0..n-1 with no gaps. Seed your RNG from `seed`. |
 | `apply(state, cmd, from)` | yes | Validates and applies one command, mutating `state`. Returns `ok(events?)` or `reject('reason')`. `from` is `{ seat, system }`. **Validate everything**: commands come from untrusted clients. |
 | `isOver(state)` | | True ends the game (phase `over`). |
 | `seats` | | `{ min, max, palette }`. Defaults: 1, 8, and a built-in 8-colour palette. |
@@ -272,6 +272,9 @@ applies it (state sync), when it's rejected, or after 3 s.
   second by default) and waste bandwidth.
 - For pointers in state sync, throttle to about 15 per second.
   `examples/cursors` does this.
+- **Held, repeating actions** (auto-fire while a key is down) become a flag
+  in state: send `{ type: 'fire', on: true }` on press and `on: false` on
+  release, and let `step` fire while the flag is set.
 
 ### Lobby UI
 

@@ -99,6 +99,8 @@ export class RoomClient<G extends AnyGame> {
 
   readonly rules: ReturnType<typeof rules>;
   private turns: { at: number; cmds: StampedCommand[] }[] = [];
+  /** Lockstep: the server said 'over', but our sim hasn't reached the final tick yet. */
+  private overPending = false;
   private events: EventOf<G>[] = [];
   private acc = 0;
   private nextId = 1;
@@ -172,14 +174,17 @@ export class RoomClient<G extends AnyGame> {
         break;
       case 'room': {
         const was = this.phase;
-        this.phase = msg.phase;
+        // Lockstep: report 'over' only once our own sim reaches the final tick, so
+        // game-over UI sees the same final state (winner etc.) the server ended on.
+        this.overPending = msg.phase === 'over' && this.game.mode === 'lockstep' && this.state !== null && this.tick < this.frontier;
+        this.phase = this.overPending ? 'playing' : msg.phase;
         this.members = msg.members;
         this.spectators = msg.spectators;
         this.paused = msg.paused;
         this.settings = msg.settings as SettingsOf<G>;
         if (msg.chat) this.chat = msg.chat;
         if (msg.phase === 'lobby') this.reset();
-        if (was !== msg.phase) this.emit('phase', msg.phase);
+        if (was !== this.phase) this.emit('phase', this.phase);
         break;
       }
       case 'snapshot':
@@ -304,7 +309,7 @@ export class RoomClient<G extends AnyGame> {
    * not playing).
    */
   submit(cmd: CommandOf<G>): number | null {
-    if (this.phase !== 'playing' || this.seat === null || this.status !== 'open') return null;
+    if (this.phase !== 'playing' || this.overPending || this.seat === null || this.status !== 'open') return null;
     const id = this.nextId++;
     this.pending.push({ id, cmd, at: this.now() });
     this.send({ t: 'input', cmd: cmd as Json, id });
@@ -353,6 +358,12 @@ export class RoomClient<G extends AnyGame> {
     if (this.tick === this.frontier) this.applyDue(game, s, events);
     // Don't bank time while stalled at the frontier, or we'd lurch forward later.
     if (this.tick >= this.frontier) this.acc = Math.min(this.acc, 1);
+    if (this.overPending && this.tick >= this.frontier) {
+      this.overPending = false;
+      this.phase = 'over';
+      this.emit('phase', 'over');
+      this.emit('change');
+    }
     return { state: s, prev: null, alpha: Math.min(1, this.acc), events };
   }
 
@@ -370,6 +381,7 @@ export class RoomClient<G extends AnyGame> {
   }
 
   private reset() {
+    this.overPending = false;
     this.state = null;
     this.prev = null;
     this.tick = 0;

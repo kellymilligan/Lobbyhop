@@ -9,7 +9,7 @@
  * Theme with CSS variables on :root or any ancestor: --lh-bg, --lh-fg,
  * --lh-dim, --lh-accent, --lh-accent-fg, --lh-border, --lh-radius, --lh-font, --lh-blur.
  */
-import type { AnyGame } from '../shared/game.js';
+import type { AnyGame, SettingsOf } from '../shared/game.js';
 import type { RoomClient } from '../client/session.js';
 import { shareLink } from '../client/profile.js';
 
@@ -43,7 +43,7 @@ export interface LobbyLabels {
   kick: string;
 }
 
-export interface LobbyOptions {
+export interface LobbyOptions<G extends AnyGame = AnyGame> {
   /** Where to mount (default document.body). The panel is a fixed, centred overlay. */
   container?: HTMLElement;
   title?: string;
@@ -52,7 +52,7 @@ export interface LobbyOptions {
   /** Host-editable settings, matching keys in your game's `settings.defaults`. */
   settings?: SettingField[];
   /** Label for empty seats (e.g. 'Bot' when your game fills them). A function can read settings. */
-  emptySeat?: string | ((settings: Record<string, unknown>) => string);
+  emptySeat?: string | ((settings: SettingsOf<G>) => string);
   /** Show the colour picker (default true). */
   colours?: boolean;
   /** Show chat (default true). */
@@ -62,7 +62,7 @@ export interface LobbyOptions {
   /** Where the game-over panel sits: 'bottom' (default; keeps the final board visible) or 'center'. */
   overPlacement?: 'bottom' | 'center';
   /** Extra content for the game-over panel (e.g. the winner). */
-  overText?: (room: RoomClient<AnyGame>) => string;
+  overText?: (room: RoomClient<G>) => string;
   /** What "Leave" does (default: drop the room from the URL and reload). */
   onLeave?: () => void;
   /** URL query parameter holding the room code (default 'room'). */
@@ -165,7 +165,7 @@ export interface Mounted {
 }
 
 /** Mounts the lobby overlay. It shows itself in the lobby (and at game over) and hides during play. */
-export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOptions = {}): Mounted {
+export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOptions<G> = {}): Mounted {
   injectStyle();
   const L = { ...LABELS, ...opts.labels };
   const param = opts.param ?? 'room';
@@ -265,7 +265,7 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
       return;
     }
     if (over) {
-      const text = opts.overText?.(room as unknown as RoomClient<AnyGame>);
+      const text = opts.overText?.(room);
       if (text) panel.append(el('p', { style: 'margin:0' }, text));
       panel.append(
         el(
@@ -306,7 +306,7 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
     }
 
     const seats = el('div', { class: 'lh-seats' });
-    const empty = typeof opts.emptySeat === 'function' ? opts.emptySeat(room.settings as Record<string, unknown>) : (opts.emptySeat ?? L.openSeat);
+    const empty = typeof opts.emptySeat === 'function' ? opts.emptySeat(room.settings) : (opts.emptySeat ?? L.openSeat);
     for (let i = 0; i < room.rules.max; i++) {
       const m = room.members.find((x) => x.seat === i);
       seats.append(

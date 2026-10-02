@@ -15,6 +15,15 @@ answers. lobbyhop ships two of them and leaves room for the others.
 | Faster lockstep action (top-down arena, twin-stick vs AI) | Lockstep | `presets.action` (60 Hz, 50 ms turns) | Lower input delay at more messages per second. |
 | Shooters, fighting games, racing, platformers with PvP contact | *Prediction or rollback* | Not yet ([ROADMAP.md](ROADMAP.md)) | These need instant local response. See below for what to do today. |
 
+**Action games, rule of thumb:** would a skilled player be upset if their
+shot or dodge landed 100–200 ms after the key press?
+- **No** (casual, vs-AI, co-op, tanks, slow projectiles): lockstep (try
+  `turnMs: 50`) or state sync both work.
+- **Yes** (aim duels, fighting games): you need prediction or rollback (see
+  below).
+
+Presets are only starting points; mix `tickRate` and `turnMs` freely.
+
 If you're unsure, **start with state sync.** It's more forgiving: no
 determinism rules, and cheating is harder. Move to lockstep when your state
 is too big to send many times a second.

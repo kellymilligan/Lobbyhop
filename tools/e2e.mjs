@@ -184,8 +184,11 @@ if (info.mode === 'lockstep') {
   );
   prints.forEach((f, i) => console.log(`player ${i + 1}: tick ${f.tick} hash ${f.hash} desyncs ${f.desyncs} rtt ${f.rtt}ms`));
   const same = prints.every((f) => f.tick === prints[0].tick && f.hash === prints[0].hash);
+  const desynced = prints.some((f) => f.desyncs > 0);
   console.log(same ? 'IN SYNC' : 'MISMATCH');
-  ok &&= same;
+  if (desynced) console.log('DESYNCS: a client drifted and was repaired by snapshot; the sim is not deterministic (see DETERMINISM.md)');
+  if (over) console.log('note: the game ended before the time was up, so less was exercised (raise the target or lower --seconds)');
+  ok &&= same && !desynced;
 } else {
   // State sync: once traffic settles, every client should hold the server's latest view.
   // Without a per-seat `view`, all views are identical, so compare them directly.

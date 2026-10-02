@@ -56,6 +56,7 @@ try {
 }
 
 let failed = false;
+const ran = ['node'];
 for (const name of ['chromium', 'firefox', 'webkit']) {
   let browser;
   try {
@@ -80,8 +81,12 @@ for (const name of ['chromium', 'firefox', 'webkit']) {
     engineOk = false;
     console.log(`${name}: MISMATCH in ${seed} at checkpoint ${at}`);
   });
+  ran.push(name);
   if (engineOk) console.log(`${name}: identical (${((Date.now() - t1) / 1000).toFixed(1)}s)`);
   else failed = true;
 }
-console.log(failed ? 'DETERMINISM FAIL' : 'DETERMINISM PASS');
+const crossEngine = ran.includes('firefox') || ran.includes('webkit');
+if (failed) console.log('DETERMINISM FAIL');
+else if (crossEngine) console.log(`DETERMINISM PASS (${ran.join(', ')})`);
+else console.log('DETERMINISM PASS (V8 only: Node and Chromium share an engine, so this is NOT a cross-engine result. Run with Firefox and WebKit installed, e.g. in CI with --require-all.)');
 process.exit(failed ? 1 : 0);

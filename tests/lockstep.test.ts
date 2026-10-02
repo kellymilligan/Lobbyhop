@@ -260,6 +260,23 @@ describe('lockstep', () => {
     expect(h.clients.every((c) => c.tick < 100)).toBe(true);
   });
 
+  it("clients only report 'over' once their own sim has reached the final state", () => {
+    const h = createHarness(brawl, { clients: 3, seed: 'overtiming', latency: [20, 400] });
+    h.run(600);
+    h.host().setSettings({ minutes: 1 });
+    h.run(600);
+    h.startGame();
+    const seen: { tick: number; frontier: number; over: boolean }[] = [];
+    for (const c of h.clients) c.on('phase', (p) => p === 'over' && seen.push({ tick: c.tick, frontier: c.frontier, over: brawl.isOver!(c.state as BrawlState) }));
+    h.until(() => seen.length === 3, 70_000);
+    for (const s of seen) {
+      expect(s.tick).toBe(s.frontier);
+      expect(s.over).toBe(true);
+    }
+    // Inputs are refused locally while draining to the end.
+    expect(h.clients[0].submit({ type: 'spawn', x: 1, y: 1 })).toBeNull();
+  });
+
   it('a command can end the game on the tick it is applied', () => {
     const h = createHarness(brawl, { clients: 2, seed: 'end' });
     h.run(600);

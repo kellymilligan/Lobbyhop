@@ -21,7 +21,11 @@ export interface SeatInfo {
 export interface Setup<Settings> {
   /** A fresh random seed for this game. Seed your RNG from it. */
   seed: string;
-  /** The humans present, sorted by seat. Seats without a human are yours to fill (bots) or omit. */
+  /**
+   * The humans present, sorted by seat. Seats are always contiguous here (0..n-1):
+   * the lobby reseats when someone leaves. Seats without a human (n..max-1) are
+   * yours to fill with bots or omit.
+   */
   seats: SeatInfo[];
   /** Host-chosen settings (validated). */
   settings: Settings;
@@ -191,7 +195,7 @@ export function validateSettings<Settings>(game: AnyGame, raw: unknown, current:
 
 /**
  * Genre presets: sensible starting points you can spread into a definition.
- * See docs/GENRES.md for how to choose.
+ * Mix tickRate and turnMs freely; these are starting points. See docs/CHOOSING.md.
  */
 export const presets = {
   /** Board, card and word games: nothing happens until someone acts. */

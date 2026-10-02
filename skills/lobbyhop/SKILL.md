@@ -38,14 +38,25 @@ Read `npx lobbyhop docs cat CHOOSING.md`.
 | **Lockstep** (`defineLockstep`) | Many moving units (RTS, tower defence, sims) and a sim that is, or can be made, deterministic. The project already has `createGame` / `applyCommand` / `step` style code. |
 | **Neither yet** | Competitive twitch PvP (shooters, fighters). Tell the user: prediction and rollback are on the roadmap; offer state sync with client-authoritative movement as a stopgap. |
 
+**Rule of thumb for action games:** would a skilled player be upset if their
+shot or dodge landed 100–200 ms after the key press?
+- **No** (casual, vs-AI, co-op, slow projectiles, tanks, top-down arenas): use
+  lockstep with `turnMs: 50`, or state sync. Mix `tickRate` and `turnMs`
+  freely; presets are only starting points.
+- **Yes** (aim duels, fighting games): neither model fits yet.
+
 Then choose hosting: Cloudflare (the default; free tier; one Durable Object
 per room) or Node (an existing server, Fly, Railway, a VPS).
 
 ## 2. Lockstep only: audit determinism
 
 ```sh
-npx lobbyhop audit <sim dir>
+npx lobbyhop audit src/sim.ts src/sim/   # files or folders: point it at sim code only, not the renderer
 ```
+
+- After review, silence a benign hit (such as a local `Set` that's never
+  stored) with a trailing `// lobbyhop-audit-ignore` comment.
+- The command exits 1 while hits remain, so it can gate CI.
 
 Fix each real hit (`npx lobbyhop docs cat DETERMINISM.md`):
 - **Randomness:** `seedRng`/`nextFloat` with RNG state stored in the game
@@ -101,6 +112,7 @@ test('players stay in sync', () => {
   h.run(600);
   h.startGame();
   h.run(60_000, (t) => {
+    // randomCommand: write one for your game; use h.rng (seeded) so failures reproduce.
     if (t % 250 === 0) for (const c of h.clients) c.submit(randomCommand(h.rng, c.state, c.seat));
   });
   h.freeze();
@@ -150,6 +162,9 @@ const { state, prev, alpha, events } = room.advance(dtSeconds);
 - Route all state-changing input through `room.submit(cmd)`.
 - Send **intent, on change only**: a held key is one command when it
   changes. Never send every frame.
+- **Held, repeating actions** (auto-fire while Space is down) become a flag:
+  send `{ type: 'fire', on: true }` on press and `on: false` on release, and
+  let `step` act while the flag is set.
 - Draw `room.pending` as optimistic ghosts.
 
 ### Remove single-player affordances when networked
@@ -187,8 +202,19 @@ Keep a single-player mode if the game had one. A common pattern: no
 Then `npm run server` and open `http://localhost:8787/?room=test`. For hot
 reload, also run `npx vite`; `.env.development` points the socket at :8787.
 
-**Node:** build, then `npx tsx server.ts` (it serves `dist/` and rooms on
-:8787).
+**Node:** `npm i -D tsx esbuild`, build, then `npx tsx server.ts` (it
+serves `dist/` and rooms on :8787).
+
+**Background servers in agent shells:** start them in their own process
+group, and stop the group:
+
+```sh
+setsid npx tsx server.ts > server.log 2>&1 & echo $! > server.pid
+kill -- -$(cat server.pid)
+```
+
+`npx … & echo $!` alone gives the PID of `npx`. Killing it leaves the real
+server holding the port, and later tests silently hit the old build.
 
 ## 7. Verify (don't skip)
 
@@ -231,7 +257,10 @@ public games.
 - **Caches keyed by the pre-game placeholder state go stale.** Use the
   `'snapshot'` event.
 - **Don't kill processes by pattern.** `pkill -f wrangler` can match your own
-  shell. Kill the PIDs you started.
+  shell. Use `setsid` and kill the process group, as above.
+- **Lockstep game-over UI** reads the client's own final state:
+  `room.phase` turns `over` only once the local sim has reached the server's
+  final tick.
 - **Use one browser process per player** in headless e2e, with
   `waitUntil: 'domcontentloaded'`.
 - **Node's WebSocket behind a proxy** needs

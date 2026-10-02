@@ -29,7 +29,9 @@ const HELP = `lobbyhop ${pkg.version}: agent-first multiplayer for browser games
   lobbyhop examples                  list examples
   lobbyhop examples pull <name> [dir]   copy an example into your project
 
-  lobbyhop audit <dir>               grep a lockstep sim for determinism hazards
+  lobbyhop audit <dir|file...>       grep lockstep sim code for determinism hazards
+                                     (point it at sim files only; silence a reviewed line
+                                     with a trailing // lobbyhop-audit-ignore comment)
   lobbyhop e2e --url <url> [-n 2]    N-browser smoke test (see tools/e2e.mjs)
   lobbyhop determinism <scenario.ts> cross-engine determinism check (lockstep)
   lobbyhop bot <brain.ts> --host <h> --room <code>   headless player
@@ -165,7 +167,7 @@ switch (cmd) {
       writeFileSync(gi, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${want.join('\n')}\n`);
       console.log(`  update .gitignore (+${want.join(', ')})`);
     }
-    const deps = host === 'cloudflare' ? 'npm i -D wrangler' : host === 'node' ? 'npm i ws' : 'npm i ws && npm i -D wrangler';
+    const deps = host === 'cloudflare' ? 'npm i -D wrangler' : host === 'node' ? 'npm i ws && npm i -D tsx esbuild' : 'npm i ws && npm i -D wrangler tsx esbuild';
     console.log(`
 Next:
   1. ${deps}
@@ -220,7 +222,7 @@ Open http://localhost:8787 in two windows.`);
   }
 
   case 'audit': {
-    const dir = resolve(positional[0] ?? 'src');
+    const targets = (positional.length ? positional : ['src']).map((p) => resolve(p));
     let patterns;
     try {
       ({ AUDIT_PATTERNS: patterns } = await import(pathToFileURL(join(pkgRoot, 'dist', 'det', 'index.js')).href));
@@ -235,13 +237,13 @@ Open http://localhost:8787 in two windows.`);
         for (const f of readdirSync(p)) if (f !== 'node_modules' && !f.startsWith('.')) walk(join(p, f));
       } else if (/\.(ts|tsx|js|mjs|jsx)$/.test(p) && !/\.(test|spec)\./.test(p)) files.push(p);
     };
-    walk(dir);
+    for (const t of targets) walk(t);
     let hits = 0;
     for (const f of files) {
       readFileSync(f, 'utf8')
         .split('\n')
         .forEach((line, i) => {
-          if (/^\s*(\/\/|\/?\*)/.test(line)) return;
+          if (/^\s*(\/\/|\/?\*)/.test(line) || line.includes('lobbyhop-audit-ignore')) return;
           for (const { pattern, why } of patterns) {
             if (pattern.test(line)) {
               hits++;

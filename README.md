@@ -133,7 +133,7 @@ TypeScript with no runtime dependencies.
 
 v0.1. The core was extracted from a shipped multiplayer game (Siegeline, a
 Line Tower Wars homage) and generalised. Every release is checked by:
-- 47 tests (`npm test`);
+- 48 tests (`npm test`);
 - real-browser e2e on both Cloudflare (workerd) and Node;
 - cross-engine determinism in CI.
 

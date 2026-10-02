@@ -60,7 +60,8 @@ node bin/lobbyhop.mjs help
   on Node, and look at the screenshots.
 - Lockstep engine changes: run `tools/determinism.mjs`. Firefox and WebKit
   only run in CI; say so when reporting.
-- Keep the PIDs of background servers you start, and kill those PIDs.
+- Start background servers with `setsid … & echo $! > pid`, and stop them
+  with `kill -- -$(cat pid)`. A bare `npx … &` PID is npx, not the server.
   **Never kill by pattern:** `pkill -f wrangler` has killed the agent's own
   shell, because a commit message contained the word.
 

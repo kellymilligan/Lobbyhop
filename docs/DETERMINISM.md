@@ -51,13 +51,20 @@ must follow these rules.
 ## Audit
 
 ```sh
-npx lobbyhop audit src/sim
+npx lobbyhop audit src/sim            # folders or files; point it at sim code, not the renderer
 ```
 
 This greps for the usual suspects: `Math.random`, transcendental `Math.*`,
 `**`, `Date`, `performance`, `.sort()` with no comparator, `for…in`, platform
 APIs, `new Map/Set`. Review every hit. Some are fine: a `Set` used as a local
 temporary, or `Math.random` in rendering code that sits in the same folder.
+
+- Silence a reviewed line with a trailing `// lobbyhop-audit-ignore: reason`
+  comment.
+- The command exits 1 while hits remain, so `npm run audit` can gate CI.
+- `lobbyhop determinism` labels a run that only reached Node and Chromium as
+  "V8 only". Both share an engine, so only Firefox and WebKit (in CI) prove
+  cross-engine determinism.
 
 ## Verify
 

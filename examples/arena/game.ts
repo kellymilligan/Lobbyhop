@@ -167,7 +167,7 @@ export const game = defineLockstep<State, Command, Settings, Event>({
   },
   create({ seed, seats, settings }) {
     const count = settings.bots ? 4 : Math.max(1, seats.length);
-    const used = new Set(seats.map((s) => s.colour));
+    const used = new Set(seats.map((s) => s.colour)); // lobbyhop-audit-ignore: local lookup, never stored
     const spare = PALETTE.filter((c) => !used.has(c));
     const players = Array.from({ length: count }, (_, i) => {
       const info = seats.find((s) => s.seat === i) ?? null;

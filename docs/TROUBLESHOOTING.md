@@ -16,7 +16,7 @@ fixes.
 | "Slow down." toasts | Sending input every frame | Send on change only; throttle pointers to ~15/s; or raise `limits.inputsPerSecond` |
 | Renderer shows 8 lanes for 3 players | Layout assumed max seats | Drive layout from the state's player count |
 | Stale colours or caches after a rejoin | Caches keyed by the placeholder state | Reset on `room.on('snapshot')`, or key caches by content |
-| WebSocket 426 from the room URL | Opened the room URL as a page | Rooms are `/rooms/<code>` WebSockets; the page is `/?room=<code>` |
+| HTTP 426 from the room URL | Opened the room URL as a page | Rooms are `/rooms/<code>` WebSockets; the page is `/?room=<code>` |
 | Socket never connects in dev | Client pointing at the wrong host | `.env.development` with `VITE_ROOM_HOST=localhost:8787`, and pass `host: import.meta.env.VITE_ROOM_HOST` |
 | `/rooms/...` returns index.html on Cloudflare | Assets served before the Worker | `"run_worker_first": ["/rooms/*"]` in `wrangler.jsonc` |
 | Room lost after deploy (Node) | No `persistDir` | Set `PERSIST_DIR` on a persistent volume |
@@ -62,8 +62,15 @@ fixes.
   builds: run them one after another and stop them when done.
 - **Never kill by pattern** (`pkill -f wrangler`, `pgrep -f … | xargs kill`).
   The pattern can match your own shell's command line, including a commit
-  message that mentions it. Keep the PIDs you start, or spawn detached and
-  kill the process group.
+  message that mentions it.
+  - Start servers with `setsid cmd & echo $! > pid`, and stop them with
+    `kill -- -$(cat pid)`.
+  - `npx x & echo $!` gives the PID of `npx`, not the server. Killing it
+    orphans the server, which keeps the port, and the next test silently
+    hits the old build.
+- **Lockstep game-over UI showing a stale state:** `room.phase` turns `over`
+  only once the local sim reaches the server's final tick, so read the
+  winner from `room.state` then. (This was a bug before; update lobbyhop.)
 - **Workers `Date.now()`** only advances between I/O events. That's fine with
   `setInterval`; never busy-wait.
 - **`wrangler dev`** prints an update-check stack trace at startup in
