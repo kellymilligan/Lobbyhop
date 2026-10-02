@@ -1,0 +1,107 @@
+{
+  "name": "lobbyhop",
+  "version": "0.1.0",
+  "description": "Agent-first multiplayer for browser games and experiences: share a URL, play together. Lockstep and state-sync rooms on Cloudflare Durable Objects or Node.",
+  "license": "MIT",
+  "type": "module",
+  "author": "Kelly Milligan",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kellymilligan/lobbyhop.git"
+  },
+  "keywords": [
+    "multiplayer",
+    "lockstep",
+    "netcode",
+    "websocket",
+    "cloudflare",
+    "durable-objects",
+    "lobby",
+    "game",
+    "webgpu",
+    "agents"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "lobbyhop": "./bin/lobbyhop.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "default": "./dist/client/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "default": "./dist/server/index.js"
+    },
+    "./cloudflare": {
+      "types": "./dist/cloudflare/index.d.ts",
+      "default": "./dist/cloudflare/index.js"
+    },
+    "./node": {
+      "types": "./dist/node/index.d.ts",
+      "default": "./dist/node/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./det": {
+      "types": "./dist/det/index.d.ts",
+      "default": "./dist/det/index.js"
+    },
+    "./lobby-ui": {
+      "types": "./dist/lobby-ui/index.d.ts",
+      "default": "./dist/lobby-ui/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin",
+    "docs",
+    "skills",
+    "templates",
+    "examples",
+    "tools",
+    "llms.txt",
+    "AGENTS.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p examples",
+    "test": "vitest run",
+    "dev:example": "node tools/dev-example.mjs",
+    "server": "node tools/server.mjs",
+    "e2e": "node tools/e2e.mjs",
+    "determinism": "node tools/determinism.mjs"
+  },
+  "peerDependencies": {
+    "ws": "^8.18.0"
+  },
+  "peerDependenciesMeta": {
+    "ws": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261002.1",
+    "@types/node": "^22.20.5",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.56.1",
+    "typescript": "5.9",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.7",
+    "wrangler": "^4.146.0",
+    "ws": "^8.22.0"
+  }
+}
