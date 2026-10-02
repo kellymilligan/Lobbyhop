@@ -131,6 +131,7 @@ const CSS = `
 .lh-lines b{font-weight:600}
 .lh-status{position:fixed;top:12px;right:12px;z-index:999;display:flex;gap:8px;align-items:center;padding:6px 12px;border-radius:99px;font:12px/1.3 var(--lh-font,ui-sans-serif,system-ui,sans-serif);background:var(--lh-bg,rgba(20,22,30,.62));color:var(--lh-fg,#f3f4f8);border:1px solid var(--lh-border,rgba(255,255,255,.14));backdrop-filter:blur(var(--lh-blur,18px));-webkit-backdrop-filter:blur(var(--lh-blur,18px))}
 .lh-status button{font:inherit;color:inherit;background:rgba(255,255,255,.1);border:1px solid var(--lh-border,rgba(255,255,255,.14));border-radius:99px;padding:2px 10px;cursor:pointer}
+@media (max-width:480px){.lh-panel{padding:16px;gap:10px}.lh-seats{grid-template-columns:1fr 1fr}.lh-seat{padding:6px 8px}.lh-swatch{width:24px;height:24px}}
 .lh-status .lh-good{color:#7ee2a8}.lh-status .lh-warn{color:#ffd27a}.lh-status .lh-bad{color:#ff8f8f}
 `;
 
