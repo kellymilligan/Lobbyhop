@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tic-tac-toe · lobbyhop</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: radial-gradient(circle at 70% 10%, #33284d, #0d0f17 70%); color: #f3f4f8; font-family: ui-sans-serif, system-ui, sans-serif; }
+      main { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 72px 16px; }
+      #board { display: grid; grid-template-columns: repeat(3, min(26vw, 120px)); gap: 8px; }
+      #board button { aspect-ratio: 1; font: 700 min(14vw, 64px)/1 ui-sans-serif, system-ui, sans-serif; color: #f3f4f8; border-radius: 16px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); cursor: pointer; }
+      #board button:disabled { cursor: default; }
+      #board .x { color: #7c9cff; } #board .o { color: #ff8fb3; }
+      #board .ghost { opacity: .4; } #board .win { background: rgba(255,255,255,.18); }
+      #info { margin: 0; color: rgba(243,244,248,.7); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div id="board"></div>
+      <p id="info"></p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

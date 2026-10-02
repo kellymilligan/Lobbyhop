@@ -233,7 +233,7 @@ export class RoomClient<G extends AnyGame> {
         this.pings.delete(msg.id);
         if (sent !== undefined) {
           const rtt = this.now() - sent;
-          this.rtt = this.rtt === null ? rtt : Math.round(this.rtt * 0.7 + rtt * 0.3);
+          this.rtt = Math.round(this.rtt === null ? rtt : this.rtt * 0.7 + rtt * 0.3);
         }
         return;
       }

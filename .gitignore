@@ -1,9 +1,9 @@
-node_modules
-dist
-dist-examples
-.wrangler
-.dev.vars
 *.log
 .DS_Store
+.dev.vars
+.wrangler
 /out
 /test-results
+dist
+dist-examples
+node_modules

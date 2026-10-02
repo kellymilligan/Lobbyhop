@@ -18,7 +18,7 @@ import { RoomCore } from '../server/room.js';
 
 // Minimal structural types, so this module needs no @cloudflare/workers-types
 // (which clash with DOM types in browser projects).
-interface DOStorage {
+export interface DOStorage {
   get<T = unknown>(key: string): Promise<T | undefined>;
   get<T = unknown>(keys: string[]): Promise<Map<string, T>>;
   put(entries: Record<string, unknown>): Promise<void>;
@@ -27,7 +27,7 @@ interface DOStorage {
   setAlarm(at: number): Promise<void>;
   deleteAlarm(): Promise<void>;
 }
-interface DOState {
+export interface DOState {
   storage: DOStorage;
   blockConcurrencyWhile<T>(fn: () => Promise<T>): Promise<T>;
 }
@@ -55,11 +55,23 @@ export interface CloudflareRoomOptions extends RoomOptions {
 const CHUNK = 96 * 1024;
 const MAX_CONNECTIONS = 64;
 
+/** The Durable Object instance created per room. */
+export interface RoomServer<G extends AnyGame> {
+  readonly core: RoomCore<G>;
+  fetch(request: Request): Promise<Response>;
+  alarm(): Promise<void>;
+}
+
+/** The Durable Object class returned by `createRoomServer`. */
+export interface RoomServerClass<G extends AnyGame> {
+  new (ctx: DOState, env: unknown): RoomServer<G>;
+}
+
 /**
  * Creates the Durable Object class for a game's rooms. Export it from your
  * Worker under the `class_name` in wrangler.jsonc.
  */
-export function createRoomServer<G extends AnyGame>(game: G, options: CloudflareRoomOptions = {}) {
+export function createRoomServer<G extends AnyGame>(game: G, options: CloudflareRoomOptions = {}): RoomServerClass<G> {
   return class LobbyhopRoom {
     readonly core: RoomCore<G>;
     private sockets = new Map<string, CfWebSocket>();

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Orb Arena · lobbyhop</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f17; color: #f3f4f8; font-family: ui-sans-serif, system-ui, sans-serif; }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
+      #hud { position: fixed; top: 12px; left: 12px; padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.6; background: rgba(20,22,30,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.12); }
+      #hud:empty { display: none; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="hud"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

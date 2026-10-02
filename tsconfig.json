@@ -12,7 +12,11 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": {
+      "lobbyhop": ["./src/index.ts"],
+      "lobbyhop/*": ["./src/*/index.ts"]
+    }
   },
   "include": ["src", "tests"]
 }

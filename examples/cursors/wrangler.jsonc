@@ -1,0 +1,22 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "lobbyhop-cursors",
+  "main": "worker.ts",
+  "compatibility_date": "2025-09-01",
+  // The built game is served as static assets; /rooms/<code> goes to that room's Durable Object.
+  "assets": {
+    "directory": "../../dist-examples/cursors",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/rooms/*"]
+  },
+  "durable_objects": { "bindings": [{ "name": "Room", "class_name": "Room" }] },
+  // SQLite-backed Durable Objects work on the Workers Free plan.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Room"] }],
+  // Only needed inside the lobbyhop repo, where examples use the source directly.
+  "alias": {
+    "lobbyhop": "../../src/index.ts",
+    "lobbyhop/cloudflare": "../../src/cloudflare/index.ts",
+    "lobbyhop/det": "../../src/det/index.ts"
+  }
+}

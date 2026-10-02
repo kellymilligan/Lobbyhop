@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursors · lobbyhop</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f17; color: #f3f4f8; font-family: ui-sans-serif, system-ui, sans-serif; }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: none; }
+      .bar { position: fixed; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 12px; border-radius: 99px; font-size: 13px; background: rgba(20,22,30,.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.12); }
+      .bar input, .bar button { font: inherit; color: inherit; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); border-radius: 99px; padding: 3px 10px; }
+      .bar input { width: 120px; } .bar button { cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div class="bar"><span id="count"></span><input id="name" maxlength="20" aria-label="Your name" /><button id="share">Copy link</button></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
