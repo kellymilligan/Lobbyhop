@@ -16,7 +16,10 @@
  *   --url <url>        an already running game (any lobbyhop app exposing window.lobbyhop.room)
  *   -n <players>       number of browsers (default 2)
  *   --seconds <s>      how long to play (default 12)
- *   --script <file>    module exporting `async act(page, playerIndex, round)` (default: random keys + clicks)
+ *   --script <file>    module exporting `async act(page, playerIndex, round)`, called for every
+ *                      player each round (~200 ms apart). playerIndex follows arrival order, so
+ *                      0 is the host; read seat/turn/state from `window.lobbyhop.room` inside
+ *                      page.evaluate. Default: random WASD presses and clicks.
  *   --out <dir>        screenshots (default out/e2e)
  *
  * The page must expose `window.lobbyhop = { room }` (every example does).
@@ -184,9 +187,20 @@ if (info.mode === 'lockstep') {
   console.log(same ? 'IN SYNC' : 'MISMATCH');
   ok &&= same;
 } else {
-  await wait(1000);
-  const ticks = await Promise.all(pages.map((p) => p.evaluate(() => window.lobbyhop.room.tick)));
-  console.log(`state sync ticks: ${ticks.join(', ')}`);
+  // State sync: once traffic settles, every client should hold the server's latest view.
+  // Without a per-seat `view`, all views are identical, so compare them directly.
+  await wait(1500);
+  const views = await Promise.all(
+    pages.map((p) => p.evaluate(() => ({ tick: window.lobbyhop.room.tick, json: JSON.stringify(window.lobbyhop.room.state), perSeat: !!window.lobbyhop.room.game.view, realtime: window.lobbyhop.room.game.tickRate > 0 }))),
+  );
+  console.log(`state sync ticks: ${views.map((v) => v.tick).join(', ')}`);
+  if (views[0].perSeat) console.log('per-seat views (game.view): not compared across players');
+  else if (views[0].realtime) console.log('real-time state sync: views change continuously; not compared (use the harness for exact checks)');
+  else {
+    const same = views.every((v) => v.json === views[0].json);
+    console.log(same ? 'VIEWS MATCH' : 'VIEWS DIFFER');
+    ok &&= same;
+  }
 }
 if (errors.length) console.log(`page errors:\n  ${errors.join('\n  ')}`);
 console.log(`screenshots in ${out}`);

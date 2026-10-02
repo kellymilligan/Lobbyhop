@@ -6,7 +6,7 @@ import type { AnyGame } from '../shared/game.js';
 import type { ServerMsg } from '../shared/protocol.js';
 import type { Profile, RoomClientOptions } from './session.js';
 import { RoomClient } from './session.js';
-import { loadProfile, saveProfile } from './profile.js';
+import { loadProfile, saveProfile, tabToken } from './profile.js';
 
 export interface JoinOptions extends RoomClientOptions {
   /** Room code (e.g. from `getRoomCode()`). */
@@ -61,7 +61,10 @@ export function roomUrl(room: string, host?: string, prefix = '/rooms'): string 
  */
 export function joinRoom<G extends AnyGame>(game: G, opts: JoinOptions): JoinedRoom<G> {
   const key = opts.profileKey ?? `lobbyhop.profile.${game.name}`;
-  const profile = opts.profile ?? loadProfile(key, { colour: game.seats?.palette?.[0] });
+  const saved = opts.profile ?? loadProfile(key, { colour: game.seats?.palette?.[0] });
+  // Two tabs in one browser get separate seats; a refresh keeps yours (see tabToken).
+  const claim = opts.profile ? null : tabToken(saved.token, opts.room, key);
+  const profile = claim ? { ...saved, token: claim.token } : saved;
   const url = roomUrl(opts.room, opts.host, opts.prefix);
   const WS = opts.WebSocket ?? globalThis.WebSocket;
   let ws: WebSocket | null = null;
@@ -132,10 +135,11 @@ export function joinRoom<G extends AnyGame>(game: G, opts: JoinOptions): JoinedR
   const setProfile = client.setProfile.bind(client);
   client.setProfile = (p) => {
     setProfile(p);
-    if (!opts.profile) saveProfile(key, client.profile);
+    if (!opts.profile) saveProfile(key, { ...client.profile, token: saved.token });
   };
   client.leave = () => {
     stop();
+    claim?.release();
     const sock = ws;
     ws = null;
     sock?.close(1000, 'leave');

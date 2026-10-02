@@ -20,6 +20,7 @@ fixes.
 | Socket never connects in dev | Client pointing at the wrong host | `.env.development` with `VITE_ROOM_HOST=localhost:8787`, and pass `host: import.meta.env.VITE_ROOM_HOST` |
 | `/rooms/...` returns index.html on Cloudflare | Assets served before the Worker | `"run_worker_first": ["/rooms/*"]` in `wrangler.jsonc` |
 | Room lost after deploy (Node) | No `persistDir` | Set `PERSIST_DIR` on a persistent volume |
+| "This seat was opened somewhere else" | The same token connected twice: a duplicated tab, or a custom `profile` reused across tabs | Normal tabs get their own seat automatically. With a fixed `profile` option, give each tab its own token. |
 | Room jumps forward when players return | (Fixed in lobbyhop) The clock caught up on the time nobody was connected | Update lobbyhop |
 
 ## Pitfalls already hit (and fixed in lobbyhop)

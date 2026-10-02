@@ -157,6 +157,14 @@ switch (cmd) {
       writeNew(resolve('fly.toml'), fill(t('node/fly.toml'), { NAME: name }), made);
     }
     writeNew(resolve('.env.development'), t('env.development'), made);
+    // Keep local server state and build output out of git.
+    const gi = resolve('.gitignore');
+    const have = existsSync(gi) ? readFileSync(gi, 'utf8') : '';
+    const want = ['.wrangler', 'dist', 'out'].filter((l) => !have.split(/\r?\n/).some((x) => x.replace(/\/$/, '') === l || x === `/${l}`));
+    if (want.length) {
+      writeFileSync(gi, `${have}${have && !have.endsWith('\n') ? '\n' : ''}${want.join('\n')}\n`);
+      console.log(`  update .gitignore (+${want.join(', ')})`);
+    }
     const deps = host === 'cloudflare' ? 'npm i -D wrangler' : host === 'node' ? 'npm i ws' : 'npm i ws && npm i -D wrangler';
     console.log(`
 Next:
@@ -169,7 +177,9 @@ Next:
        mountLobby(room, { title: '${name}' }); mountStatus(room);
        // each frame: const { state, alpha, events } = room.advance(dt);  input: room.submit(cmd)
   4. Run: ${host === 'node' ? 'vite build && npx tsx server.ts' : 'vite build && npx wrangler dev   (or vite + wrangler dev side by side)'}
-  5. Deploy: npx lobbyhop docs cat DEPLOY.md`);
+  5. Typecheck: make sure tsconfig "include" covers ${host === 'node' ? 'server.ts' : 'worker.ts'} (it's at the project root).
+  6. Deploy: npx lobbyhop docs cat DEPLOY.md
+Templates to copy from: npx lobbyhop examples (tictactoe = turn-based, arena = real-time lockstep, cursors = drop-in).`);
     break;
   }
 

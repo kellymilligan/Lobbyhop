@@ -59,6 +59,8 @@ export interface LobbyOptions {
   chat?: boolean;
   /** Show the panel when the game is over, with rematch / back-to-lobby (default true). */
   showOver?: boolean;
+  /** Where the game-over panel sits: 'bottom' (default; keeps the final board visible) or 'center'. */
+  overPlacement?: 'bottom' | 'center';
   /** Extra content for the game-over panel (e.g. the winner). */
   overText?: (room: RoomClient<AnyGame>) => string;
   /** What "Leave" does (default: drop the room from the URL and reload). */
@@ -251,6 +253,7 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
     const visible = room.error !== null || room.phase === 'lobby' || (over && opts.showOver !== false);
     overlay.style.display = visible ? '' : 'none';
     if (!visible) return;
+    overlay.style.alignItems = over && !room.error && opts.overPlacement !== 'center' ? 'flex-end' : '';
     const focused = document.activeElement;
     const keep = [nameInput, chatInput, linkInput].includes(focused as HTMLInputElement) ? (focused as HTMLInputElement) : null;
     panel.replaceChildren();

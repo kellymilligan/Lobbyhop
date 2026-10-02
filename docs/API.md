@@ -27,6 +27,7 @@ Shared by client and server.
 | `getRoomCode({ param?, create?, length? })` | The `?room=` code from the URL, or a new one written into the URL with `history.replaceState`. |
 | `roomFromUrl(param?)`, `setRoomInUrl(code \| null, param?)`, `shareLink(code, param?)`, `newRoomCode(length?)`, `cleanRoomCode(s)` | URL helpers. |
 | `loadProfile(key?, defaults?)`, `saveProfile(key, profile)` | `{ token, name, colour, meta }` in localStorage. |
+| `tabToken(profileToken, room, scope?) → { token, release }` | Used by `joinRoom`: one live tab per room claims the browser's token, other tabs get their own. A refresh keeps yours. |
 | `roomUrl(room, host?, prefix?)` | The WebSocket URL a room uses. |
 
 ### `RoomClient`
@@ -36,7 +37,10 @@ Shared by client and server.
 - room: `phase`, `members`, `spectators`, `paused`, `settings`, `chat`,
   `rtt`;
 - game: `state`, `prev`, `tick`, `frontier`, `pending`, `snapshots`,
-  `desyncs`, `rules`, `profile`;
+  `desyncs`, `profile`;
+- config: `game` (the definition), `rules` (resolved: `max`, `min`,
+  `palette`, `tickRate`, `turnMs`, `hashEvery`, `sendRate`, `lobby`,
+  `version`);
 - getters: `connected`, `spectating`.
 
 **Methods:**
@@ -55,7 +59,7 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `mountLobby(room, { title?, subtitle?, settings?, emptySeat?, colours?, chat?, showOver?, overText?, onLeave?, param?, code?, labels?, container? }) → { el, destroy }` | The lobby overlay. |
+| `mountLobby(room, { title?, subtitle?, settings?, emptySeat?, colours?, chat?, showOver?, overPlacement?, overText?, onLeave?, param?, code?, labels?, container? }) → { el, destroy }` | The lobby overlay. |
 | `mountStatus(room, { pause?, param?, container? }) → { el, destroy }` | The in-game chip. |
 | Types `SettingField` (`toggle` \| `number` \| `select`), `LobbyLabels`, `LobbyOptions` | |
 
@@ -92,9 +96,22 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `seedRng(seed) → Rng`, `nextU32`, `nextFloat`, `nextInt`, `nextRange`, `pick`, `shuffle`, `pickWeighted` | Seeded sfc32. `Rng` is a 4-number tuple stored in your state. |
-| `sin`, `cos`, `atan2`, `wrapAngle`, `powi`, `length`, `quantise`, `PI`, `TAU` | Deterministic maths. |
-| `hashString`, `stateHash` | FNV-1a. |
+| `seedRng(seed: string \| number) → Rng` | Seeded sfc32. `Rng` is a 4-number tuple; store it in your state. |
+| `nextU32(rng)` | Integer in [0, 2³²). |
+| `nextFloat(rng)` | Float in [0, 1). |
+| `nextInt(rng, n)` | Integer in [0, n). |
+| `nextRange(rng, min, max)` | Float in [min, max). |
+| `pick(rng, items)` | A random element. |
+| `shuffle(rng, items)` | Fisher–Yates, in place; returns `items`. |
+| `pickWeighted(rng, weights)` | An index, chosen by weight. |
+| `sin(x)`, `cos(x)` | Error < 1e-6. |
+| `atan2(y, x)` | Result in [-π, π]. |
+| `wrapAngle(a)` | Wraps to [-π, π]. |
+| `powi(base, intExp)` | Exact integer power. |
+| `length(x, y)` | `Math.sqrt(x*x + y*y)`. |
+| `quantise(x, step = 1/1024)` | Rounds to a step. |
+| `PI`, `TAU` | |
+| `hashString(str)`, `stateHash(state)` | FNV-1a. `stateHash` hashes the JSON of the state. |
 | `assertJsonSafe(state)` | Throws on values JSON would mangle. |
 | `AUDIT_PATTERNS` | What `lobbyhop audit` looks for. |
 

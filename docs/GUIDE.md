@@ -73,8 +73,9 @@ function frame(now) {
 npx vite build && npx wrangler dev     # http://localhost:8787 serves the game and the rooms
 ```
 
-Open it in two windows. The URL gains a `?room=abc123` code: that's the
-share link, and a refresh rejoins the same seat.
+Open it in two tabs (or send the link to another device). The URL gains a
+`?room=abc123` code: that's the share link, and a refresh rejoins the same
+seat.
 
 ## Concepts
 
@@ -82,7 +83,7 @@ share link, and a refresh rejoins the same seat.
 |---|---|
 | **Room** | One game session, addressed by a code in the URL (`?room=k3m9xq`). It's created on first connect. On Cloudflare each room is a Durable Object; on Node it's an entry in a map. |
 | **Seat** | A player slot. In the lobby, seats follow join order (0, 1, 2 …), and they stay fixed for the whole game. Your game state should be keyed by seat. |
-| **Token** | A random secret per browser, kept in `localStorage`. Reconnecting with it reclaims your seat, which is how refresh-to-rejoin works. |
+| **Token** | A random secret that identifies you in a room. It's kept in `localStorage`, so reconnecting, refreshing, or closing the tab and reopening the link all reclaim your seat. A second tab in the same browser gets its own token, and so its own seat (`tabToken`), so you can test with two tabs. |
 | **Host** | The first connected seat. The host changes settings, starts, pauses, kicks and returns everyone to the lobby. If the host leaves, the next player becomes host. |
 | **Phase** | `lobby` → `playing` → `over`, then back to `lobby` or a rematch. |
 | **Spectator** | Someone who couldn't get a seat (the room was full or the game had started). Spectators receive the game but can't act. |
@@ -234,7 +235,22 @@ function frame(now: number) {
   positions in state (`px, py`) and draw `lerp(px, x, alpha)`.
 - **State sync:** `advance` returns the latest view, the previous one, and
   `alpha` from previous to latest. Draw `lerp(prev.x, state.x, alpha)`.
-  Turn-based games can skip the loop and re-render on `'change'`.
+
+### Turn-based games: no loop needed
+
+Board, card and turn-based games can skip `requestAnimationFrame` entirely:
+re-render on `'change'`, and call `room.advance(0)` at the top of the render
+to collect events and expire stale pending inputs. `examples/tictactoe` is
+the template:
+
+```ts
+function render() {
+  const { state, events } = room.advance(0);
+  if (!state) return;               // lobby
+  draw(state, room.pending);        // pending = your optimistic, unconfirmed moves
+}
+room.on('change', render);
+```
 
 ### Optimistic UI (ghosts)
 
@@ -282,6 +298,15 @@ play. It includes:
 - a name field and colour swatches (taken colours are disabled);
 - seats, with host, away and kick controls;
 - host settings, chat, and start (disabled until `seats.min`).
+
+- **Colours:** lobby colours come from `seats.palette`. If players have fixed
+  roles with fixed colours (red and yellow discs, white and black pieces),
+  set `palette` to exactly those colours in seat order. Pass `colours: false`
+  to hide the picker.
+- **Game-over panel:** this sits at the bottom of the screen by default, so
+  the final board stays visible. Use `overPlacement: 'center'` to centre it,
+  or `showOver: false` to draw your own (call `room.start()` for a rematch
+  and `room.toLobby()` to return to the lobby).
 
 Theme it with CSS variables: `--lh-bg`, `--lh-fg`, `--lh-dim`, `--lh-accent`,
 `--lh-accent-fg`, `--lh-border`, `--lh-radius`, `--lh-font`, `--lh-blur`.
@@ -345,8 +370,18 @@ It's framework-free, so it works with Vitest, Jest or `node:test`.
 npx lobbyhop e2e --url http://localhost:8787/ -n 3     # one Chromium per player; pauses, compares tick + hash
 ```
 
-Your page must expose `window.lobbyhop = { room }`. Pass `--script actions.mjs`
-to drive your game (see `examples/arena/e2e-actions.mjs`).
+Your page must expose `window.lobbyhop = { room }`.
+
+- **Checks:** lockstep runs pause and compare tick and hash. Turn-based state
+  sync compares every client's view (unless the game has a per-seat `view`).
+  Every run fails on page errors.
+- **Driving your game:** pass `--script actions.mjs`, a module exporting
+  `async act(page, playerIndex, round)`.
+  - It's called for every player each round, about 200 ms apart.
+  - `playerIndex` follows arrival order, so 0 is the host.
+  - Read seat, turn and state inside `page.evaluate(() => window.lobbyhop.room…)`,
+    then click or press keys with Playwright.
+  - See `examples/arena/e2e-actions.mjs`.
 
 ### Determinism across engines (lockstep)
 

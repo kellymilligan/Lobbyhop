@@ -129,7 +129,11 @@ mountStatus(room);
 
 ### The game loop
 
-Replace local stepping with `room.advance(dt)`:
+**Turn-based or board game?** Skip the loop. Render on `room.on('change', render)`,
+call `room.advance(0)` at the top of `render`, and copy
+`npx lobbyhop examples pull tictactoe`, which is the template for this case.
+
+**Real-time?** Replace local stepping with `room.advance(dt)`:
 
 ```ts
 const { state, prev, alpha, events } = room.advance(dtSeconds);
@@ -161,6 +165,12 @@ const { state, prev, alpha, events } = room.advance(dtSeconds);
 - Lay out by the state's player count, not the max.
 - Reset caches on `room.on('snapshot')`.
 
+For fixed role colours (red and yellow), set `seats.palette` to them in seat
+order.
+
+Two tabs in one browser get separate seats, so you can test locally with two
+tabs.
+
 Keep a single-player mode if the game had one. A common pattern: no
 `?room=` in the URL means local play, and a "Multiplayer" button calls
 `getRoomCode()` and reloads.
@@ -185,9 +195,12 @@ reload, also run `npx vite`; `.env.development` points the socket at :8787.
 1. Typecheck, unit tests and the harness test.
 2. Real browsers: `npx lobbyhop e2e --url http://localhost:8787/ -n 2`. Two
    Chromium processes join through the lobby, play, pause, and compare
-   tick and hash (lockstep). Pass `--script actions.mjs` to drive real input
-   (see `examples/arena/e2e-actions.mjs`). Look at the screenshots in
-   `out/e2e`.
+   tick and hash (lockstep), or views (turn-based state sync).
+   - Pass `--script actions.mjs` exporting `async act(page, playerIndex, round)`
+     to drive real input. `playerIndex` follows arrival order, so 0 is the
+     host. Read the turn and seat from `window.lobbyhop.room` in
+     `page.evaluate`. See `examples/arena/e2e-actions.mjs`.
+   - Look at the screenshots in `out/e2e`.
 3. Lockstep: `npx lobbyhop determinism <scenario>`. In CI, use
    `--require-all` with Firefox and WebKit installed.
 4. Optional: `npx lobbyhop bot <brain.ts> --host localhost:8787 --room test --start`

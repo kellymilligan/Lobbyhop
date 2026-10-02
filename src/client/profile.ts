@@ -99,3 +99,64 @@ function randomName() {
   globalThis.crypto.getRandomValues(b);
   return `${ADJ[b[0] % ADJ.length]} ${NOUN[b[1] % NOUN.length]}`;
 }
+
+/**
+ * Picks the session token for this tab in a room, so that:
+ * - a refresh keeps the same token (same seat);
+ * - closing the tab and reopening the link keeps the same token;
+ * - a second tab in the same browser gets its own token (its own seat)
+ *   instead of kicking the first tab out.
+ * The browser-wide profile token is "claimed" by one live tab per room via a
+ * heartbeat in localStorage; other tabs use a per-tab token in sessionStorage.
+ */
+export function tabToken(profileToken: string, room: string, scope = 'lobbyhop'): { token: string; release(): void } {
+  const ls = safeStorage('localStorage');
+  const ss = safeStorage('sessionStorage');
+  if (!ls || !ss) return { token: profileToken, release() {} };
+  const lockKey = `${scope}.lock.${room}`;
+  const tabKey = `${scope}.tab.${room}`;
+  const me = randomToken();
+  const now = () => Date.now();
+  const readLock = (): { tab: string; at: number } | null => {
+    try {
+      return JSON.parse(ls.getItem(lockKey) ?? 'null');
+    } catch {
+      return null;
+    }
+  };
+  const lock = readLock();
+  const taken = !!lock && lock.tab !== me && now() - lock.at < 5000;
+  let token: string;
+  if (!taken) token = profileToken;
+  else {
+    // Another live tab holds the browser's seat in this room: use (or keep) a tab-only identity.
+    const mine = ss.getItem(tabKey);
+    token = mine && mine !== profileToken ? mine : randomToken();
+  }
+  ss.setItem(tabKey, token);
+  let timer: ReturnType<typeof setInterval> | null = null;
+  const beat = () => ls.setItem(lockKey, JSON.stringify({ tab: me, at: now() }));
+  const release = () => {
+    if (timer) clearInterval(timer);
+    timer = null;
+    if (readLock()?.tab === me) ls.removeItem(lockKey);
+  };
+  if (token === profileToken) {
+    beat();
+    timer = setInterval(beat, 2000);
+    // A refresh releases the claim, so the reloaded page reclaims the same seat.
+    if (typeof addEventListener === 'function') addEventListener('pagehide', release);
+  }
+  return { token, release };
+}
+
+function safeStorage(kind: 'localStorage' | 'sessionStorage'): Storage | null {
+  try {
+    const s = (globalThis as unknown as Record<string, Storage | undefined>)[kind];
+    if (!s) return null;
+    s.getItem('x');
+    return s;
+  } catch {
+    return null;
+  }
+}
