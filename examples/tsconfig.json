@@ -1,0 +1,15 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": false,
+    "types": ["node", "vite/client"],
+    "noEmit": true,
+    "paths": {
+      "lobbyhop": ["../src/index.ts"],
+      "lobbyhop/*": ["../src/*/index.ts"]
+    }
+  },
+  "include": ["."]
+}
