@@ -252,3 +252,43 @@ export function createHarness<G extends AnyGame>(game: G, opts: HarnessOptions =
   };
   return h;
 }
+
+export interface ScenarioOptions<C> {
+  seed: string;
+  /** Seats with a human (default [0, 1]). */
+  seats?: number[];
+  /** Settings to create the game with (default: the game's defaults). */
+  settings?: unknown;
+  /** Ticks to simulate (stops early if the game ends). */
+  ticks: number;
+  /** Record a hash every this many ticks (default: the game's hashEvery, ≈ 5 s). */
+  hashEvery?: number;
+  /** Scripted input: called every tick with a seeded RNG; return [seat, command] pairs to apply. */
+  input?: (tick: number, rng: Rng, state: unknown) => [number, C][];
+  /** Pass the state through JSON at this tick, as a snapshot/reconnect would (default: halfway). */
+  roundTripAt?: number;
+}
+
+/**
+ * Runs a lockstep game headless and records state hashes at fixed ticks.
+ * Pure code with no Node or DOM APIs, so it can be bundled and run in every
+ * browser engine: tools/determinism.mjs compares the results across engines.
+ */
+export function recordHashes<S, C>(game: import('../shared/game.js').LockstepGame<S, C, any, any>, opts: ScenarioOptions<C>): number[] {
+  const seats = (opts.seats ?? [0, 1]).map((seat) => ({ seat, name: `P${seat}`, colour: '', meta: null }));
+  let s = game.create({ seed: opts.seed, seats, settings: (opts.settings ?? game.settings?.defaults ?? {}) as never });
+  const rng = seedRng(`script:${opts.seed}`);
+  const every = opts.hashEvery ?? game.hashEvery ?? Math.round(game.tickRate * 5);
+  const roundTrip = opts.roundTripAt ?? opts.ticks >> 1;
+  const hash = (x: S) => (game.hash ? game.hash(x) : hashString(JSON.stringify(x)));
+  const out: number[] = [];
+  let t = 0;
+  for (; t < opts.ticks && !(game.isOver?.(s) ?? false); t++) {
+    for (const [seat, cmd] of opts.input?.(t, rng, s) ?? []) game.apply(s, cmd, { seat, system: false });
+    game.step(s);
+    if ((t + 1) % every === 0) out.push(hash(s));
+    if (t === roundTrip) s = JSON.parse(JSON.stringify(s)) as S;
+  }
+  out.push(t, hash(s));
+  return out;
+}

@@ -529,6 +529,8 @@ export class RoomCore<G extends AnyGame = AnyGame> {
   private updateClock() {
     const want = this.phase === 'playing' && !this.paused && this.conns.size > 0 ? this.engine.clockMs : null;
     if (want === this.clockMs) return;
+    // Starting the clock again (after everyone left, or a pause): time didn't pass for the game.
+    if (this.clockMs === null && want !== null) this.engine.rebase();
     this.clockMs = want;
     this.io.setClock(want);
   }

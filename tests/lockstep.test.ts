@@ -172,6 +172,26 @@ describe('lockstep', () => {
     h.assertInSync();
   });
 
+  it('time does not pass for a room everyone has left', () => {
+    const h = createHarness(brawl, { clients: 2, seed: 'empty' });
+    h.run(600);
+    h.startGame();
+    h.run(3000);
+    const before = h.room.engine.tick;
+    h.disconnect(0);
+    h.disconnect(1);
+    h.run(120_000);
+    expect(h.room.engine.tick - before).toBeLessThan(15);
+    h.reconnect(0);
+    h.reconnect(1);
+    h.run(1000);
+    // No 5-second lurch on return: about one second of play has happened.
+    expect(h.room.engine.tick - before).toBeLessThan(45);
+    expect(h.room.phase).toBe('playing');
+    h.freeze();
+    h.assertInSync();
+  });
+
   it('a desynced client is detected and repaired by snapshot', () => {
     const h = createHarness(brawl, { clients: 2, seed: 'desync' });
     h.run(600);

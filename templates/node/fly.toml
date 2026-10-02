@@ -1,0 +1,21 @@
+# fly launch --copy-config --no-deploy && fly volumes create rooms --size 1 && fly deploy
+app = "{{NAME}}"
+primary_region = "syd"
+
+[build]
+
+[env]
+  PORT = "8787"
+  PERSIST_DIR = "/data"
+
+[mounts]
+  source = "rooms"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  # Rooms live in memory: keep one machine running and don't scale out
+  # without routing each room code to a fixed machine (see docs/DEPLOY.md).
+  auto_stop_machines = "off"
+  min_machines_running = 1

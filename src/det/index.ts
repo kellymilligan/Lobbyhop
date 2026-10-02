@@ -219,7 +219,7 @@ export function assertJsonSafe(state: unknown, label = 'state'): void {
 export const AUDIT_PATTERNS: { pattern: RegExp; why: string }[] = [
   { pattern: /Math\.random\b/, why: 'Unseeded randomness: use seedRng/nextFloat from lobbyhop/det with RNG state stored in your game state.' },
   { pattern: /Math\.(sin|cos|tan|asin|acos|atan|atan2|sinh|cosh|tanh|exp|expm1|log|log2|log10|log1p|pow|cbrt|hypot)\b/, why: 'Transcendental maths differs between engines: use sin/cos/atan2/powi/length from lobbyhop/det.' },
-  { pattern: /\*\*/, why: 'The ** operator is Math.pow: use powi() for integer powers or x*x.' },
+  { pattern: /[\w)\]]\s*\*\*\s*[\w(]/, why: 'The ** operator is Math.pow: use powi() for integer powers or x*x.' },
   { pattern: /\b(Date\.now|new Date|performance\.now)\b/, why: 'Wall-clock time in the sim: use tick counts.' },
   { pattern: /\.sort\(\s*\)/, why: 'Default sort compares as strings and may differ for mixed data: pass an explicit, total comparator.' },
   { pattern: /for\s*\(\s*(const|let|var)\s+\w+\s+in\b/, why: 'for…in order depends on key insertion and numeric-like keys: iterate arrays or sorted keys.' },
