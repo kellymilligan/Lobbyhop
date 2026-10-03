@@ -92,6 +92,8 @@ Fill in `src/multiplayer/game.ts`:
 - **`step(state)`** for real-time games.
 - **`view(state, seat)`** (state sync) to hide secrets.
 - **`isOver(state)`**.
+- **`canStart(seats, settings)`** for start rules that depend on settings
+  ("without bots you need two players"). Return a reason or null.
 - **`hooks`**: `idle` to hand a disconnected seat to a bot; `join` for late
   joiners or `lobby: false` drop-in rooms. Reject `from.system`-only
   commands from clients.
@@ -155,6 +157,8 @@ const { state, prev, alpha, events } = room.advance(dtSeconds);
   - Lockstep: keep `px, py` in state and draw `lerp(px, x, alpha)`.
   - State sync: draw `lerp(prev.x, state.x, alpha)`.
 - Play `events` (sounds, effects).
+- Pass the **real** elapsed time to `advance`, not your single-player loop's
+  clamped `dt`. It clamps and catches up on its own.
 - `state` is null in the lobby.
 
 ### Input
@@ -226,7 +230,11 @@ server holding the port, and later tests silently hit the old build.
      to drive real input. `playerIndex` follows arrival order, so 0 is the
      host. Read the turn and seat from `window.lobbyhop.room` in
      `page.evaluate`. See `examples/arena/e2e-actions.mjs`.
-   - Look at the screenshots in `out/e2e`.
+   - Custom lobby? The runner drives `window.lobbyhop.room` instead of the UI,
+    so no special markup is needed.
+  - Heavy 3D page? Use `--viewport 800x500`, a `?lite` mode, or
+    `--no-screenshots`.
+  - Look at the screenshots in `out/e2e`.
 3. Lockstep: `npx lobbyhop determinism <scenario>`. In CI, use
    `--require-all` with Firefox and WebKit installed.
 4. Optional: `npx lobbyhop bot <brain.ts> --host localhost:8787 --room test --start`

@@ -14,7 +14,13 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import vm from 'node:vm';
-import { build } from 'esbuild';
+let build;
+try {
+  ({ build } = await import('esbuild'));
+} catch {
+  console.error('lobbyhop determinism needs esbuild (and playwright for browsers): npm i -D esbuild playwright');
+  process.exit(1);
+}
 import { alias, root } from './example-config.mjs';
 
 const argv = process.argv.slice(2);
@@ -51,7 +57,7 @@ let playwright;
 try {
   playwright = await import('playwright');
 } catch {
-  console.log('playwright not installed; only Node was checked');
+  console.log('playwright not installed (npm i -D playwright && npx playwright install chromium firefox webkit); only Node was checked');
   process.exit(requireAll ? 1 : 0);
 }
 

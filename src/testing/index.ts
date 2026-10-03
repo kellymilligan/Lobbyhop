@@ -11,7 +11,8 @@
  *
  * Framework-free: works with Vitest, Jest, node:test or a plain script.
  */
-import type { AnyGame, EventOf, StateSyncGame } from '../shared/game.js';
+import type { AnyGame, EventOf, ServerStateOf, StateSyncGame } from '../shared/game.js';
+import { rules } from '../shared/game.js';
 import type { ClientMsg, ServerMsg } from '../shared/protocol.js';
 import { hashString, nextInt, seedRng } from '../det/index.js';
 import type { Rng } from '../det/index.js';
@@ -44,6 +45,8 @@ export interface Harness<G extends AnyGame> {
   saves: (RoomSave | null)[];
   /** Game events each client's `advance` produced, in order (the harness drives advance for you). */
   events: EventOf<G>[][];
+  /** The server's authoritative game state, typed (null outside a game). */
+  serverState(): ServerStateOf<G> | null;
   /** Fake clock, ms. */
   now(): number;
   /** Runs `ms` of simulated time; `each(t)` is called every step. */
@@ -188,6 +191,7 @@ export function createHarness<G extends AnyGame>(game: G, opts: HarnessOptions =
     rng,
     saves,
     events,
+    serverState: () => room.state,
     now: () => now,
     run,
     until(cond, maxMs = 30_000) {
@@ -217,7 +221,7 @@ export function createHarness<G extends AnyGame>(game: G, opts: HarnessOptions =
       room.engine.rebase();
     },
     assertInSync() {
-      const server = (room.engine as unknown as { state: unknown }).state;
+      const server = room.state;
       if (server === null) throw new Error('harness: no game running');
       const problems: string[] = [];
       clients.forEach((c, i) => {
@@ -253,10 +257,14 @@ export function createHarness<G extends AnyGame>(game: G, opts: HarnessOptions =
   return h;
 }
 
-export interface ScenarioOptions<C> {
+export interface ScenarioOptions<C, S = unknown> {
   seed: string;
-  /** Seats with a human (default [0, 1]). */
-  seats?: number[];
+  /**
+   * Humans in the game: a count (default 2), giving seats 0..n-1 exactly as a
+   * room would, or explicit seat numbers. Rooms always pass contiguous seats,
+   * so prefer a count; with explicit numbers, look seats up by `.seat`.
+   */
+  seats?: number | number[];
   /** Settings to create the game with (default: the game's defaults). */
   settings?: unknown;
   /** Ticks to simulate (stops early if the game ends). */
@@ -264,7 +272,7 @@ export interface ScenarioOptions<C> {
   /** Record a hash every this many ticks (default: the game's hashEvery, ≈ 5 s). */
   hashEvery?: number;
   /** Scripted input: called every tick with a seeded RNG; return [seat, command] pairs to apply. */
-  input?: (tick: number, rng: Rng, state: unknown) => [number, C][];
+  input?: (tick: number, rng: Rng, state: S) => [number, C][];
   /** Pass the state through JSON at this tick, as a snapshot/reconnect would (default: halfway). */
   roundTripAt?: number;
 }
@@ -274,8 +282,10 @@ export interface ScenarioOptions<C> {
  * Pure code with no Node or DOM APIs, so it can be bundled and run in every
  * browser engine: tools/determinism.mjs compares the results across engines.
  */
-export function recordHashes<S, C>(game: import('../shared/game.js').LockstepGame<S, C, any, any>, opts: ScenarioOptions<C>): number[] {
-  const seats = (opts.seats ?? [0, 1]).map((seat) => ({ seat, name: `P${seat}`, colour: '', meta: null }));
+export function recordHashes<S, C>(game: import('../shared/game.js').LockstepGame<S, C, any, any>, opts: ScenarioOptions<C, S>): number[] {
+  const palette = rules(game).palette;
+  const list = typeof opts.seats === 'number' || opts.seats === undefined ? Array.from({ length: opts.seats ?? 2 }, (_, i) => i) : opts.seats;
+  const seats = list.map((seat) => ({ seat, name: `Player ${seat + 1}`, colour: palette[seat % palette.length], meta: null }));
   let s = game.create({ seed: opts.seed, seats, settings: (opts.settings ?? game.settings?.defaults ?? {}) as never });
   const rng = seedRng(`script:${opts.seed}`);
   const every = opts.hashEvery ?? game.hashEvery ?? Math.round(game.tickRate * 5);

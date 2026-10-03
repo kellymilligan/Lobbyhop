@@ -18,11 +18,13 @@ async function until(cond: () => boolean, ms = 5000) {
 describe('node adapter over real WebSockets', () => {
   const server = createNodeServer(brawl, {});
   const other = createNodeServer(secrets, {});
+  const lagServer = createNodeServer(secrets, {});
   const joined: JoinedRoom<any>[] = [];
   afterAll(async () => {
     for (const j of joined) j.leave();
     await server.close();
     await other.close();
+    await lagServer.close();
   });
 
   it('two lockstep clients play in sync through the Node server', async () => {
@@ -56,6 +58,27 @@ describe('node adapter over real WebSockets', () => {
     expect(stateHash(a.state)).toBe(stateHash(srv.state));
     expect(stateHash(b.state)).toBe(stateHash(srv.state));
     expect(a.rtt).not.toBeNull();
+  });
+
+  it('simulateLatency holds inputs in pending for about the round trip', { timeout: 20_000 }, async () => {
+    const { port } = await lagServer.listen(0);
+    const host = `127.0.0.1:${port}`;
+    const a = joinRoom(secrets, { room: 'lagtest', host, profile: { token: 'lag-token-0', name: 'A', colour: '' }, simulateLatency: 400 });
+    const b = joinRoom(secrets, { room: 'lagtest', host, profile: { token: 'lag-token-1', name: 'B', colour: '' } });
+    joined.push(a, b);
+    await until(() => a.members.length === 2 && b.members.length === 2 && (a.host || b.host), 8000);
+    // b has no added latency, so it usually arrives first and hosts.
+    (a.host ? a : b).start();
+    await until(() => a.state !== null && b.state !== null, 8000);
+    const v = a.state as SecretsView;
+    const me = v.seats[v.turn] === a.seat ? a : b;
+    const other_ = me === a ? b : a;
+    me.setSimulatedLatency(600);
+    const t0 = Date.now();
+    me.submit({ type: 'guess', target: other_.seat!, value: 99 });
+    expect(me.pending.length).toBe(1);
+    await until(() => me.pending.length === 0, 5000);
+    expect(Date.now() - t0).toBeGreaterThanOrEqual(550);
   });
 
   it('state sync views over real WebSockets, and a refresh reclaims the seat', async () => {

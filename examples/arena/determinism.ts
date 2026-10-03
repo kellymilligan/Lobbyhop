@@ -9,16 +9,15 @@ import { game } from './game';
 import type { Command } from './game';
 
 export function runScenario(seed: string, minutes: number): number[] {
-  return recordHashes<unknown, Command>(game as never, {
+  return recordHashes(game, {
     seed,
-    // Two "humans" follow a seeded script; the other seats are bots.
-    seats: [0, 2],
+    // Two "humans" (seats 0 and 1, as a room would seat them) follow a seeded script; bots fill the rest.
+    seats: 2,
     settings: { bots: true, target: 1000, minutes: 60 },
     ticks: minutes * 60 * game.tickRate,
-    input: (t, rng, state) => {
+    input: (t, rng, s) => {
       if (t % 12 !== 0) return [];
-      const s = state as { players: { x: number; y: number }[] };
-      return [0, 2].map((seat): [number, Command] =>
+      return [0, 1].map((seat): [number, Command] =>
         nextInt(rng, 4) === 0
           ? [seat, { type: 'wall', x: Math.floor(s.players[seat].x) + nextInt(rng, 5) - 2, y: Math.floor(s.players[seat].y) + nextInt(rng, 5) - 2 }]
           : [seat, { type: 'move', dx: nextInt(rng, 3) - 1, dy: nextInt(rng, 3) - 1 }],

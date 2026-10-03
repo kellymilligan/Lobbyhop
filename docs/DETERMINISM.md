@@ -87,7 +87,7 @@ temporary, or `Math.random` in rendering code that sits in the same folder.
    export function runScenario(seed: string, minutes: number) {
      return recordHashes(game, {
        seed,
-       seats: [0, 1],
+       seats: 2,                       // humans in seats 0 and 1, exactly as a room seats them
        ticks: minutes * 60 * game.tickRate,
        input: (t, rng) => (t % 15 ? [] : [[0, { type: 'move', dx: nextInt(rng, 3) - 1, dy: 0 }]]),
      });

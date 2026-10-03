@@ -12,6 +12,8 @@ fixes.
 | "This game has been updated. Refresh the page" | Client and server builds differ (`name@version`) | Redeploy both; bump `version` on purpose when shapes change |
 | Nothing happens on click, and no errors | `submit` returns null outside `playing`, for spectators, or while disconnected | Check `room.phase`, `room.seat`, `room.status` |
 | Input feels laggy (lockstep) | Turn delay plus latency | Draw `room.pending` as ghosts. Lower `turnMs` (50) for action games. |
+| Slow to catch up after a stall or hidden tab (lockstep) | Your loop passes a clamped `dt` to `advance` | Pass the real elapsed time; `advance` clamps to 1 s and sprints up to 30× itself |
+| `start` refused with a reason | `seats.min` or the game's `canStart` rule | Read `room.startBlocker` (the stock lobby shows it under Start) |
 | Remote players jitter (state sync) | Drawing `state` directly | Interpolate `lerp(prev, state, alpha)` |
 | "Slow down." toasts | Sending input every frame | Send on change only; throttle pointers to ~15/s; or raise `limits.inputsPerSecond` |
 | Renderer shows 8 lanes for 3 players | Layout assumed max seats | Drive layout from the state's player count |
@@ -51,6 +53,15 @@ fixes.
 
 - **One browser process per player.** Software GL in one Chromium process
   starves a second page. `lobbyhop e2e` does this.
+- **Heavy 3D pages with 3+ browsers:** screenshots can take tens of seconds
+  under software GL. `lobbyhop e2e` skips a screenshot that times out instead
+  of failing. Pass `--viewport 800x500`, add a lite mode (`?lite` on
+  `--url`), or use `--no-screenshots`.
+- **`timeout 60 cmd | tail` prints nothing** in non-interactive shells:
+  `timeout` signals its whole process group, which includes the pipe reader.
+  Use `timeout --foreground 60 cmd | tail`, or redirect to a file. It isn't a
+  lobbyhop issue; `lobbyhop bot --status 15` gives periodic status lines
+  either way.
 - **Use `waitUntil: 'domcontentloaded'`.** Blocked web fonts can stall
   `load`.
 - **Poll, don't sleep.** At about 1 fps (SwiftShader), wait for

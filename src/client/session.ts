@@ -8,7 +8,7 @@
  * latest view from the server plus the previous one, for interpolation.
  */
 import type { AnyGame, CommandOf, EventOf, Json, LockstepGame, SettingsOf, StateOf } from '../shared/game.js';
-import { rules } from '../shared/game.js';
+import { rules, startBlocker } from '../shared/game.js';
 import type { ChatLine, ClientMsg, ErrorCode, MemberView, RoomPhase, ServerMsg, StampedCommand } from '../shared/protocol.js';
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { stateHash } from '../det/index.js';
@@ -145,6 +145,20 @@ export class RoomClient<G extends AnyGame> {
   /** Connected players other than the host who haven't said they're ready. The host readies by starting. */
   get notReady(): MemberView[] {
     return this.members.filter((m) => m.connected && !m.host && !m.ready);
+  }
+
+  /**
+   * Why the host can't start yet (too few players, or the game's `canStart`
+   * rule), or null if they can. Mirrors the server's check, so the UI can
+   * disable Start with the reason.
+   */
+  get startBlocker(): string | null {
+    // The server seats connected players contiguously when (re)starting.
+    const seats = this.members
+      .filter((m) => m.connected)
+      .sort((a, b) => a.seat - b.seat)
+      .map((m, i) => ({ seat: this.phase === 'over' ? i : m.seat, name: m.name, colour: m.colour, meta: m.meta }));
+    return startBlocker(this.game, seats, this.settings);
   }
 
   /** True when every connected non-host player is ready (a soft signal: the host can start regardless). */

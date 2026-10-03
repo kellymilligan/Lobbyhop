@@ -27,11 +27,20 @@ export interface JoinOptions extends RoomClientOptions {
   pingMs?: number;
   /** WebSocket implementation (default globalThis.WebSocket). */
   WebSocket?: typeof WebSocket;
+  /**
+   * Dev aid: add this much round-trip latency (ms, or a [min, max] range for
+   * jitter) to everything this client sends and receives, preserving order.
+   * Lets you feel a slow connection locally, or hold inputs in `pending` long
+   * enough to screenshot ghosts. Change it later with `room.setSimulatedLatency()`.
+   */
+  simulateLatency?: number | [number, number];
 }
 
 export interface JoinedRoom<G extends AnyGame> extends RoomClient<G> {
   /** Close the socket for good. */
   leave(): void;
+  /** Dev aid: change the simulated round-trip latency (0 turns it off). See `simulateLatency`. */
+  setSimulatedLatency(ms: number | [number, number]): void;
   /** The WebSocket URL in use. */
   readonly url: string;
 }
@@ -73,7 +82,26 @@ export function joinRoom<G extends AnyGame>(game: G, opts: JoinOptions): JoinedR
   let retry: ReturnType<typeof setTimeout> | null = null;
   let pinger: ReturnType<typeof setInterval> | null = null;
 
-  const client = new RoomClient(game, (m) => ws?.readyState === 1 && ws.send(JSON.stringify(m)), profile, opts) as JoinedRoom<G>;
+  // Simulated latency: half the round trip each way, in order per direction.
+  let lag: [number, number] = [0, 0];
+  const setLag = (ms: number | [number, number] | undefined) => {
+    lag = typeof ms === 'number' ? [ms, ms] : ms ? [Math.min(ms[0], ms[1]), Math.max(ms[0], ms[1])] : [0, 0];
+  };
+  setLag(opts.simulateLatency);
+  const lastAt = { out: 0, in: 0 };
+  const delayed = (dir: 'out' | 'in', fn: () => void) => {
+    if (lag[1] <= 0) return fn();
+    const oneWay = (lag[0] + Math.random() * (lag[1] - lag[0])) / 2;
+    const at = Math.max(Date.now() + oneWay, lastAt[dir]);
+    lastAt[dir] = at;
+    setTimeout(fn, at - Date.now());
+  };
+  const transport = (m: unknown) => {
+    const data = JSON.stringify(m);
+    const sock = ws;
+    delayed('out', () => sock?.readyState === 1 && sock === ws && sock.send(data));
+  };
+  const client = new RoomClient(game, transport, profile, opts) as JoinedRoom<G>;
 
   const connect = () => {
     if (stopped) return;
@@ -90,7 +118,9 @@ export function joinRoom<G extends AnyGame>(game: G, opts: JoinOptions): JoinedR
       } catch {
         return;
       }
-      client.receive(msg);
+      delayed('in', () => {
+        if (ws === sock) client.receive(msg);
+      });
       if (msg.t === 'error') stop();
     };
     sock.onclose = () => {
@@ -145,6 +175,7 @@ export function joinRoom<G extends AnyGame>(game: G, opts: JoinOptions): JoinedR
     sock?.close(1000, 'leave');
     client.closed(false);
   };
+  client.setSimulatedLatency = setLag;
   Object.defineProperty(client, 'url', { value: url });
 
   const pingMs = opts.pingMs ?? 3000;

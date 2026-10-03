@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { assertJsonSafe, atan2, cos, nextFloat, nextInt, powi, seedRng, shuffle, sin, stateHash, wrapAngle } from '../src/det/index.js';
 import { cleanRoomCode, newRoomCode } from '../src/client/profile.js';
 import { roomUrl } from '../src/client/socket.js';
+import { recordHashes } from '../src/testing/index.js';
+import { defineLockstep, ok } from '../src/index.js';
 
 describe('det maths', () => {
   it('sin/cos track Math within 1e-6 over a wide range', () => {
@@ -84,5 +86,22 @@ describe('room codes and urls', () => {
     expect(roomUrl('abc', 'game.example.com')).toBe('wss://game.example.com/rooms/abc');
     expect(roomUrl('abc', 'http://10.0.0.5:3000/', '/r')).toBe('ws://10.0.0.5:3000/r/abc');
     expect(roomUrl('abc', 'https://x.workers.dev')).toBe('wss://x.workers.dev/rooms/abc');
+  });
+});
+
+describe('recordHashes', () => {
+  it('seats humans 0..n-1 with real names and palette colours, like a room', () => {
+    let seen: unknown = null;
+    const g = defineLockstep<{ n: number }, null>({
+      name: 'rh',
+      tickRate: 10,
+      create: ({ seats }) => ((seen = seats), { n: 0 }),
+      apply: () => ok(),
+      step: (s) => void s.n++,
+    });
+    const out = recordHashes(g, { seed: 'x', ticks: 100, seats: 3, hashEvery: 50 });
+    expect(seen).toEqual([0, 1, 2].map((i) => ({ seat: i, name: `Player ${i + 1}`, colour: expect.stringMatching(/^#/), meta: null })));
+    expect(out.length).toBe(4); // two checkpoints + final tick + final hash
+    expect(out.at(-2)).toBe(100);
   });
 });

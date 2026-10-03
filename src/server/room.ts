@@ -7,8 +7,8 @@
  * start / pause / back to lobby, spectators, chat, rate limits, persistence
  * and idle-seat hooks. The sync engine (lockstep or state sync) owns the game.
  */
-import type { AnyGame, Json, SeatInfo } from '../shared/game.js';
-import { rules, validateSettings } from '../shared/game.js';
+import type { AnyGame, Json, SeatInfo, ServerStateOf } from '../shared/game.js';
+import { rules, startBlocker, validateSettings } from '../shared/game.js';
 import type { ChatLine, ClientMsg, ErrorCode, MemberView, RoomPhase, ServerMsg } from '../shared/protocol.js';
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import type { EngineHost, ServerEngine } from './engine.js';
@@ -158,6 +158,11 @@ export class RoomCore<G extends AnyGame = AnyGame> {
   }
 
   /** Number of open connections (players and spectators). */
+  /** The authoritative game state (null outside a game). Handy in tests and debugging. */
+  get state(): ServerStateOf<G> | null {
+    return (this.engine as unknown as { state: ServerStateOf<G> | null }).state;
+  }
+
   get connections() {
     return this.conns.size;
   }
@@ -264,9 +269,12 @@ export class RoomCore<G extends AnyGame = AnyGame> {
           this.reseat(this.members.filter((x) => x.conn));
           this.promoteSpectators();
         }
-        if (this.members.length < this.rules.min) {
-          this.send(conn, { t: 'reject', reason: `You need at least ${this.rules.min} players to start.` });
-          return;
+        {
+          const blocked = startBlocker(this.game, this.sortedSeats(), this.settings);
+          if (blocked) {
+            this.send(conn, { t: 'reject', reason: blocked });
+            return;
+          }
         }
         this.start();
         break;
@@ -433,8 +441,12 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     return m;
   }
 
+  private sortedSeats(): SeatInfo[] {
+    return [...this.members].sort((a, b) => a.seat - b.seat).map((m) => this.seatInfo(m));
+  }
+
   private start() {
-    const seats = [...this.members].sort((a, b) => a.seat - b.seat).map((m) => this.seatInfo(m));
+    const seats = this.sortedSeats();
     const seed = this.io.seed?.() ?? randomSeed();
     this.engine.start({ seed, seats, settings: this.settings });
     this.clearReady();

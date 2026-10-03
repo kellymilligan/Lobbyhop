@@ -91,10 +91,18 @@
     "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "peerDependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "esbuild": ">=0.20",
+    "playwright": ">=1.40"
   },
   "peerDependenciesMeta": {
     "ws": {
+      "optional": true
+    },
+    "esbuild": {
+      "optional": true
+    },
+    "playwright": {
       "optional": true
     }
   },

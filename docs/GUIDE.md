@@ -124,6 +124,7 @@ A game definition is a plain object shared by client and server. Wrap it in
 | `lobby` | | `false` starts the room on first arrival, and others join live. Default true. |
 | `idleMs` | | How long a seat may be disconnected before `hooks.idle` fires. Default 30 s. |
 | `spectators` | | Allow spectators. Default true. |
+| `canStart(seats, settings)` | | Extra start rule that depends on who's here and the settings, e.g. "without bots you need at least two players". Return a reason string to block, or null. The server rejects `start` with it, and the lobby disables Start and shows the reason (`room.startBlocker`). |
 
 ### Lockstep-only fields
 
@@ -191,6 +192,7 @@ All of these are plain fields: read them whenever you render.
 | `room.seat`, `room.host`, `room.me` | Your seat (null when spectating), whether you're host, and your member entry. |
 | `room.members` | `{ seat, name, colour, connected, host, ready, meta }[]` |
 | `room.ready`, `room.allReady`, `room.notReady` | Whether you're ready; whether every connected non-host player is; and who isn't. |
+| `room.startBlocker` | Why the host can't start yet (`seats.min` or your `canStart`), or null. |
 | `room.settings`, `room.paused`, `room.spectators`, `room.chat`, `room.rtt` | |
 | `room.state` | Lockstep: your local simulation. State sync: your latest view. Null in the lobby. |
 | `room.pending` | Commands you've sent that aren't confirmed yet: `{ id, cmd, at }[]`. Draw these as optimistic "ghosts". |
@@ -236,6 +238,22 @@ function frame(now: number) {
   positions in state (`px, py`) and draw `lerp(px, x, alpha)`.
 - **State sync:** `advance` returns the latest view, the previous one, and
   `alpha` from previous to latest. Draw `lerp(prev.x, state.x, alpha)`.
+- **Pass the real elapsed time.** If your single-player loop clamps `dt`
+  (say to 0.1 s), don't reuse that clamp here. `advance` already clamps to
+  1 s and sprints up to 30× to catch up after a stall or a hidden tab; a
+  pre-clamped `dt` slows that recovery.
+
+### Feel the latency (dev aid)
+
+```ts
+const lag = Number(new URLSearchParams(location.search).get('lag') ?? 0);
+const room = joinRoom(game, { room, simulateLatency: lag });   // ?lag=250 adds 250 ms round trip
+room.setSimulatedLatency([150, 400]);                           // or change it live, with jitter
+```
+
+This delays everything this client sends and receives, in order. Use it to
+test ghosts and interpolation under a slow connection, or in e2e to keep
+inputs pending long enough to screenshot them. Leave it off in production.
 
 ### Turn-based games: no loop needed
 
@@ -378,6 +396,7 @@ The harness also has:
 - `h.addClient()`;
 - `h.until(cond)`;
 - `h.saves` (persistence) and `h.events[i]` (events each client saw);
+- `h.serverState()`: the authoritative state, typed;
 - `h.room` (the server).
 
 It's framework-free, so it works with Vitest, Jest or `node:test`.
@@ -390,16 +409,28 @@ npx lobbyhop e2e --url http://localhost:8787/ -n 3     # one Chromium per player
 
 Your page must expose `window.lobbyhop = { room }`.
 
+- **Lobby:** with the stock lobby (`mountLobby`) the runner clicks through the
+  real UI. Otherwise it drives the room API (`setProfile`, `setReady`,
+  `start`), so custom lobbies need no special markup. Force either with
+  `--lobby ui|api`.
 - **Checks:** lockstep runs pause and compare tick and hash. Turn-based state
   sync compares every client's view (unless the game has a per-seat `view`).
   Every run fails on page errors.
 - **Driving your game:** pass `--script actions.mjs`, a module exporting
-  `async act(page, playerIndex, round)`.
-  - It's called for every player each round, about 200 ms apart.
+  `async act(page, playerIndex, round, ctx)`.
+  - It's called for every player each round, about 200 ms apart. Rounds are
+    synchronised, so one slow page slows everyone's round: schedule by game
+    state, not round count.
   - `playerIndex` follows arrival order, so 0 is the host.
+  - `ctx` is `{ out, room, url, players, pages, shot(page, name) }`; `shot`
+    saves an extra screenshot into `--out`.
   - Read seat, turn and state inside `page.evaluate(() => window.lobbyhop.room…)`,
     then click or press keys with Playwright.
   - See `examples/arena/e2e-actions.mjs`.
+- **Heavy 3D pages:** under software rendering, 3+ browsers can make
+  screenshots slow. Screenshots that time out are skipped with a note, not
+  fatal. Use `--viewport 800x500`, a lite mode in your game (a `?lite` query
+  on `--url` is passed through), or `--no-screenshots`.
 
 ### Determinism across engines (lockstep)
 
@@ -482,7 +513,15 @@ npx lobbyhop examples pull arena my-arena   # copy into your project
    fix the hits ([DETERMINISM.md](DETERMINISM.md)).
 3. **Write the game definition** around your existing `createGame`,
    `applyCommand` and `step`. Remove any `player` field from commands: the
-   server provides `from.seat`.
+   server provides `from.seat`. If your command union already carries
+   `player`:
+
+   ```ts
+   type WithoutPlayer<T> = T extends unknown ? Omit<T, 'player'> : never;  // distributes over the union
+   type Intent = WithoutPlayer<Command>;
+   // game.ts:  apply(state, cmd, from) => applyCommand(state, { ...cmd, player: from.seat } as Command)
+   // client:   const { player: _, ...intent } = cmd; room.submit(intent);
+   ```
 4. **Add a harness test** that runs 3 clients with random commands and checks
    `assertInSync()`.
 5. **Replace local stepping** with `room.advance(dt)`. Route input through

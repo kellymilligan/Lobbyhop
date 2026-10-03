@@ -9,9 +9,10 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `defineLockstep<S, C, Settings, E>(def)` | Lockstep game definition ([GUIDE](GUIDE.md#define-your-game)). |
+| `defineLockstep<S, C, Settings, E>(def)` | Lockstep game definition ([GUIDE](GUIDE.md#define-your-game)). Optional `canStart(seats, settings) → reason \| null` adds a start rule. |
 | `defineStateSync<S, C, Settings, E, View>(def)` | State-sync game definition. |
 | `ok(events?)`, `reject(reason)` | Return values for `apply`. |
+| `startBlocker(game, seats, settings)` | The shared start check (`seats.min`, then `canStart`). |
 | `presets` | `turnBased`, `casual`, `realtime`, `strategy`, `action` ([CHOOSING](CHOOSING.md)). |
 | `DEFAULT_PALETTE` | Eight lobby colours. |
 | `PROTOCOL_VERSION` and types `ClientMsg`, `ServerMsg`, `MemberView`, `ChatLine`, `RoomPhase`, `StampedCommand` | Wire protocol ([PROTOCOL](PROTOCOL.md)). |
@@ -22,7 +23,7 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `joinRoom(game, { room, host?, prefix?, profile?, profileKey?, pingMs?, pendingTimeoutMs?, WebSocket? })` | Connects with auto-reconnect. Returns a `RoomClient` with `leave()` and `url`. |
+| `joinRoom(game, { room, host?, prefix?, profile?, profileKey?, pingMs?, pendingTimeoutMs?, simulateLatency?, WebSocket? })` | Connects with auto-reconnect. Returns a `JoinedRoom<G>`: a `RoomClient` plus `leave()`, `url` and `setSimulatedLatency(ms \| [min, max])` (dev aid). Type stored rooms as `JoinedRoom<typeof game>` to keep `leave()`. |
 | `RoomClient` | Transport-free session (used by `joinRoom`, the harness and bots). Fields and methods are below. |
 | `getRoomCode({ param?, create?, length? })` | The `?room=` code from the URL, or a new one written into the URL with `history.replaceState`. |
 | `roomFromUrl(param?)`, `setRoomInUrl(code \| null, param?)`, `shareLink(code, param?)`, `newRoomCode(length?)`, `cleanRoomCode(s)` | URL helpers. |
@@ -41,7 +42,7 @@ Shared by client and server.
 - config: `game` (the definition), `rules` (resolved: `max`, `min`,
   `palette`, `tickRate`, `turnMs`, `hashEvery`, `sendRate`, `lobby`,
   `version`);
-- getters: `connected`, `spectating`, `ready` (you), `allReady`, `notReady` (connected non-host players who aren't ready).
+- getters: `connected`, `spectating`, `ready` (you), `allReady`, `notReady` (connected non-host players who aren't ready), `startBlocker` (why the host can't start, or null).
 
 **Methods:**
 
@@ -82,7 +83,7 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `RoomCore(game, io, options?)` | The platform-free room. Adapters call `onConnect`, `onMessage`, `onClose`, `pump`, `alarm`, `restore`, `serialize`. |
+| `RoomCore(game, io, options?)` | The platform-free room. Adapters call `onConnect`, `onMessage`, `onClose`, `pump`, `alarm`, `restore`, `serialize`. `room.state` is the authoritative game state (typed). |
 | Types `RoomIO` (`send`, `close`, `setClock`, `now`, `seed?`, `save?`, `schedule?`, `log?`), `RoomOptions`, `RoomLimits`, `RoomSave` | |
 | `LockstepEngine`, `StateSyncEngine` | The sync engines (used by `RoomCore`). |
 
@@ -90,8 +91,8 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `createHarness(game, { clients?, seed?, latency?, stepMs?, room?, persist? })` | A room, clients and a fake network in memory ([GUIDE](GUIDE.md#test-it)). |
-| `recordHashes(game, { seed, ticks, seats?, settings?, hashEvery?, input?, roundTripAt? }) → number[]` | Headless scripted lockstep run, for cross-engine checks. |
+| `createHarness(game, { clients?, seed?, latency?, stepMs?, room?, persist? })` | A room, clients and a fake network in memory ([GUIDE](GUIDE.md#test-it)). `h.serverState()` gives the authoritative state, typed. |
+| `recordHashes(game, { seed, ticks, seats?, settings?, hashEvery?, input?, roundTripAt? }) → number[]` | Headless scripted lockstep run, for cross-engine checks. `seats` is a count (default 2: seats 0..n-1, as a room seats them) or explicit seat numbers. `input(tick, rng, state)` gets your typed state. |
 
 ## `lobbyhop/det`
 
@@ -120,3 +121,7 @@ Shared by client and server.
 
 `docs [ls|cat|find]` · `skill` · `init` · `examples [pull]` · `audit` ·
 `e2e` · `determinism` · `bot`. Run `npx lobbyhop help` for the options.
+
+- `e2e` options: `--url`, `-n`, `--seconds`, `--script` (`act(page, i, round, ctx)`), `--lobby ui|api`, `--viewport WxH`, `--no-screenshots`, `--out`.
+- `bot` options: `--host`, `--room`, `--name`, `--start`, `--count`, `--status <s>`.
+- These tools use `esbuild` and `playwright` from your project (optional peer dependencies): `npm i -D esbuild playwright`.

@@ -7,7 +7,7 @@ import { nextFloat } from '../src/det/index.js';
 import { brawl, randomBrawlCmd } from './fixtures.js';
 import type { BrawlState } from './fixtures.js';
 
-const server = (h: { room: RoomCore }) => (h.room.engine as unknown as { state: BrawlState }).state;
+const server = (h: { room: RoomCore<typeof brawl> }) => h.room.state as BrawlState;
 
 describe('lobby', () => {
   it('assigns seats, unique colours and exactly one host', () => {
@@ -119,6 +119,34 @@ describe('lobby', () => {
     host.start();
     h.until(() => host.phase === 'playing' && host.state !== null);
     expect(host.members.every((m) => !m.ready)).toBe(true);
+  });
+
+  it('canStart blocks the start with a reason, on the server and in startBlocker', () => {
+    const solo = { ...brawl, canStart: (seats: unknown[], st: { bots: boolean }) => (!st.bots && seats.length < 2 ? 'Without bots you need at least two players.' : null) };
+    const h = createHarness(solo, { clients: 1, seed: 'canstart' });
+    h.run(600);
+    const host = h.host();
+    expect(host.startBlocker).toBeNull();
+    host.setSettings({ bots: false });
+    h.run(600);
+    expect(host.startBlocker).toBe('Without bots you need at least two players.');
+    const rejects: string[] = [];
+    host.on('reject', (r) => rejects.push(r));
+    host.start();
+    h.run(600);
+    expect(rejects).toEqual(['Without bots you need at least two players.']);
+    expect(host.phase).toBe('lobby');
+    h.addClient();
+    h.run(600);
+    expect(host.startBlocker).toBeNull();
+    h.startGame();
+    expect(h.serverState()!.players.length).toBe(2);
+  });
+
+  it('startBlocker reports seats.min too', () => {
+    const h = createHarness({ ...brawl, seats: { min: 3, max: 4 } }, { clients: 2, seed: 'min3' });
+    h.run(600);
+    expect(h.host().startBlocker).toMatch(/at least 3/);
   });
 
   it('rejects clients for another game version', () => {

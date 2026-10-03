@@ -51,6 +51,8 @@ export interface LobbyLabels {
   notReadyConfirm: (names: string[]) => string;
   startAnyway: string;
   cancel: string;
+  /** Start button label when the game's `canStart` rule blocks it (the reason shows below). */
+  cantStart: string;
 }
 
 export interface LobbyOptions<G extends AnyGame = AnyGame> {
@@ -118,6 +120,7 @@ const LABELS: LobbyLabels = {
   notReadyConfirm: (names) => `Not everyone is ready (${names.join(', ')}). Start anyway?`,
   startAnyway: 'Start anyway',
   cancel: 'Cancel',
+  cantStart: "Can't start yet",
 };
 
 const CSS = `
@@ -339,7 +342,7 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
           'div',
           { class: 'lh-actions' },
           room.host
-            ? el('div', { class: 'lh-row' }, el('button', { class: 'lh-primary', onclick: tryStart }, L.rematch + readyCount()), el('button', { onclick: () => room.toLobby() }, L.toLobby))
+            ? el('div', { class: 'lh-row' }, el('button', { class: 'lh-primary', disabled: !!room.startBlocker, title: room.startBlocker ?? undefined, onclick: tryStart }, L.rematch + readyCount()), el('button', { onclick: () => room.toLobby() }, L.toLobby))
             : room.seat !== null && showReady
               ? el('div', { class: 'lh-row' }, readyButton(), el('span', { class: 'lh-dim' }, L.waiting))
               : el('span', { class: 'lh-dim' }, L.waiting),
@@ -408,7 +411,8 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
       lines.scrollTop = lines.scrollHeight;
     }
 
-    const enough = room.members.length >= room.rules.min;
+    const blocker = room.startBlocker;
+    if (room.host && blocker && room.members.length >= room.rules.min) panel.append(el('p', { class: 'lh-dim', style: 'margin:0' }, blocker));
     if (confirming) panel.append(confirmBox());
     else
       panel.append(
@@ -416,7 +420,11 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
           'div',
           { class: 'lh-actions' },
           room.host
-            ? el('button', { class: 'lh-primary', disabled: !room.connected || !enough, onclick: tryStart }, enough ? L.start + readyCount() : L.needPlayers(room.rules.min))
+            ? el(
+                'button',
+                { class: 'lh-primary', disabled: !room.connected || !!blocker, title: blocker ?? undefined, onclick: tryStart },
+                !blocker ? L.start + readyCount() : room.members.length < room.rules.min ? L.needPlayers(room.rules.min) : L.cantStart,
+              )
             : room.spectating
               ? el('span')
               : showReady

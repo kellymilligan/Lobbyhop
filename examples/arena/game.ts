@@ -160,6 +160,8 @@ export const game = defineLockstep<State, Command, Settings, Event>({
       };
     },
   },
+  // A start rule that depends on settings: solo play needs bots to play against.
+  canStart: (seats, settings) => (!settings.bots && seats.length < 2 ? 'Without bots you need at least two players.' : null),
   idleMs: 15_000,
   hooks: {
     idle: () => ({ type: 'bot', on: true }),

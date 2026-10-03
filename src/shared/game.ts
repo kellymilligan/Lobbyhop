@@ -97,6 +97,14 @@ interface GameBase<S, C, Settings, E> {
   idleMs?: number;
   /** Let people who can't get a seat watch (default true). */
   spectators?: boolean;
+  /**
+   * Extra start rule that depends on who's here and the settings, e.g. "without
+   * bots you need at least two players". Return a reason to block the start, or
+   * null to allow it. Checked by the server (the host gets the reason) and by
+   * the client (`room.startBlocker`, which disables the lobby's Start button).
+   * `seats.min` is checked first. Not applied to lobby-less rooms.
+   */
+  canStart?(seats: SeatInfo[], settings: Settings): string | null;
 }
 
 /**
@@ -178,6 +186,17 @@ export function rules(game: AnyGame) {
     hashEvery: lockstep ? Math.max(1, game.hashEvery ?? Math.round(tickRate * 5)) : 0,
     sendRate: lockstep ? 0 : Math.min(30, (game as StateSyncGame<unknown, unknown>).sendRate ?? tickRate),
   };
+}
+
+/** Why the game can't start with these seats and settings, or null if it can. */
+export function startBlocker(game: AnyGame, seats: SeatInfo[], settings: unknown): string | null {
+  const min = rules(game).min;
+  if (seats.length < min) return `You need at least ${min} players to start.`;
+  try {
+    return game.canStart?.(seats, settings as never) ?? null;
+  } catch {
+    return 'This game cannot start right now.';
+  }
 }
 
 export function validateSettings<Settings>(game: AnyGame, raw: unknown, current: Settings): Settings {
