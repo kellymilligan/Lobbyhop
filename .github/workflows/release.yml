@@ -1,0 +1,33 @@
+name: Release
+
+# Publishes to npm when a version tag is pushed (e.g. `npm version patch && git push --follow-tags`).
+# Uses npm trusted publishing (OIDC): no NPM_TOKEN secret. Provenance is attached automatically.
+# One-time setup on npmjs.com → package settings → Trusted publisher: GitHub Actions,
+# repository kellymilligan/Lobbyhop, workflow file release.yml.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      # Trusted publishing needs npm CLI 11.5.1+; Node 22 ships npm 10.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - name: Check the tag matches package.json
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      # prepublishOnly runs typecheck, tests and build before upload.
+      - run: npm publish --access public

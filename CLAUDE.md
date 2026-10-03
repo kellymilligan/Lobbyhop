@@ -65,6 +65,15 @@ node bin/lobbyhop.mjs help
   **Never kill by pattern:** `pkill -f wrangler` has killed the agent's own
   shell, because a commit message contained the word.
 
+## Releasing
+
+- Bump with `npm version patch|minor|major` (this commits and tags `vX.Y.Z`),
+  then `git push --follow-tags`.
+- `.github/workflows/release.yml` publishes the tag to npm with trusted
+  publishing (OIDC, no token, automatic provenance). `prepublishOnly` runs
+  typecheck, tests and build first.
+- Agents can't publish (no npm account). Prepare the release, then hand over.
+
 ## How Kelly likes to work
 
 - **Research first, then explain, then build.** Ask a few focused questions,

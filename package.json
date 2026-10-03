@@ -7,7 +7,11 @@
   "author": "Kelly Milligan",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kellymilligan/lobbyhop.git"
+    "url": "git+https://github.com/kellymilligan/Lobbyhop.git"
+  },
+  "homepage": "https://github.com/kellymilligan/Lobbyhop#readme",
+  "bugs": {
+    "url": "https://github.com/kellymilligan/Lobbyhop/issues"
   },
   "keywords": [
     "multiplayer",
@@ -25,7 +29,7 @@
     "node": ">=20"
   },
   "bin": {
-    "lobbyhop": "./bin/lobbyhop.mjs"
+    "lobbyhop": "bin/lobbyhop.mjs"
   },
   "exports": {
     ".": {
@@ -83,7 +87,8 @@
     "dev:example": "node tools/dev-example.mjs",
     "server": "node tools/server.mjs",
     "e2e": "node tools/e2e.mjs",
-    "determinism": "node tools/determinism.mjs"
+    "determinism": "node tools/determinism.mjs",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
   },
   "peerDependencies": {
     "ws": "^8.18.0"
