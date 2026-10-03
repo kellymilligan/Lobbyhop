@@ -18,7 +18,7 @@ installed version, so read them rather than guessing APIs.
 ## 0. Install and orient
 
 ```sh
-npm i lobbyhop                       # not yet on npm? npm i github:kellymilligan/lobbyhop
+npm i lobbyhop
 npx lobbyhop docs cat GUIDE.md       # read once, fully
 ```
 

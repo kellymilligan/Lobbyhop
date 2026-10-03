@@ -1,5 +1,7 @@
 # lobbyhop
 
+[![npm](https://img.shields.io/npm/v/lobbyhop.svg)](https://www.npmjs.com/package/lobbyhop) [![CI](https://github.com/kellymilligan/Lobbyhop/actions/workflows/ci.yml/badge.svg)](https://github.com/kellymilligan/Lobbyhop/actions/workflows/ci.yml)
+
 **Agent-first multiplayer for browser games and experiences.** Share a link,
 play together.
 
@@ -122,8 +124,7 @@ Open the link in two windows (or send it to a friend on your network).
 ## Install
 
 ```sh
-npm i lobbyhop                                  # once published
-npm i github:kellymilligan/lobbyhop             # until then (builds on install)
+npm i lobbyhop
 ```
 
 To use it without a dependency, copy `src/` into your project. It's plain

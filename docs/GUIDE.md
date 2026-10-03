@@ -26,7 +26,7 @@ tests. The renderer doesn't matter: WebGPU, WebGL, Canvas2D and DOM all work.
 ## The five-minute version
 
 ```sh
-npm i lobbyhop            # or: npm i github:kellymilligan/lobbyhop
+npm i lobbyhop
 npx lobbyhop init --mode statesync --host cloudflare
 npm i -D wrangler
 ```

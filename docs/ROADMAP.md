@@ -27,6 +27,7 @@ approach, and what to think about. Read it as a plan and a primer.
     determinism check, headless bot client;
   - CLI with bundled docs, init scaffolding, determinism audit and examples.
 - **UI:** a framework-free lobby and status chip.
+- **Published** to npm as `lobbyhop`, with provenance via trusted publishing.
 
 ## Next
 
@@ -187,4 +188,3 @@ This proves the kit against the game it came from. Expect:
 - Binary encoding (MessagePack) behind a flag, for high-rate games.
 - A React and Preact hooks package (`useRoom(room)`). It's tiny, because
   `RoomClient` is already observable.
-- Publish to npm, so `npm i lobbyhop` works without GitHub.
