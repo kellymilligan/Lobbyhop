@@ -1,6 +1,6 @@
 {
   "name": "lobbyhop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agent-first multiplayer for browser games and experiences: share a URL, play together. Lockstep and state-sync rooms on Cloudflare Durable Objects or Node.",
   "license": "MIT",
   "type": "module",
