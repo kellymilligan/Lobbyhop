@@ -7,7 +7,7 @@ adapter.
 
 - **URL:** `ws(s)://<host>/rooms/<code>`.
 - **Codes:** 3–32 characters from `[a-z0-9-]`, lowercased.
-- `PROTOCOL_VERSION = 1`.
+- `PROTOCOL_VERSION = 2`. Version 2 added ready-up: the `ready` message and `MemberView.ready`.
 
 ## Client → server
 
@@ -15,7 +15,8 @@ adapter.
 |---|---|
 | `{ t: 'hello', v, game, token, name, colour, meta? }` | The first message on every (re)connect. `game` is `"<name>@<version>"` from the definition. `token` is the browser's secret (8–64 characters); it reclaims a seat. |
 | `{ t: 'profile', name?, colour?, meta? }` | Lobby (or any time in `lobby: false` rooms). Colours outside the palette, or taken, are replaced. |
-| `{ t: 'settings', settings }` | Host, lobby only. Validated by `settings.validate`. |
+| `{ t: 'settings', settings }` | Host, lobby only. Validated by `settings.validate`. A change clears everyone's `ready`. |
+| `{ t: 'ready', ready }` | Seated players, in the lobby or at game over (for a rematch). A soft signal: `start` is never blocked by it. Cleared for everyone when a game starts. |
 | `{ t: 'start' }` | Host. From `lobby`, or from `over` (rematch with connected players). |
 | `{ t: 'pause', paused }` | Host, while playing. |
 | `{ t: 'toLobby' }` | Host. Ends the game. |
@@ -30,7 +31,7 @@ adapter.
 | Message | Meaning |
 |---|---|
 | `{ t: 'welcome', seat, host }` | Your seat (`null` means spectating) and host status. Re-sent whenever either changes. |
-| `{ t: 'room', phase, members, spectators, paused, settings, chat? }` | The room's public state, sent on every lobby change. `chat` (history) only goes to a newcomer. |
+| `{ t: 'room', phase, members, spectators, paused, settings, chat? }` | The room's public state, sent on every lobby change. Each member is `{ seat, name, colour, connected, host, ready, meta }`. `chat` (history) only goes to a newcomer. |
 | `{ t: 'snapshot', tick, state }` | Full state on start, join, rejoin and desync repair. Lockstep: the whole state. State sync: your view. Replace local state with it. |
 | `{ t: 'turn', at, upTo, cmds }` | Lockstep. Apply `cmds` (in order) when your tick equals `at`, before stepping; then you may simulate up to `upTo`. Each cmd is `{ s: seat, c: command, i?: id, y?: 1 }` (`y` marks server-issued commands). |
 | `{ t: 'state', tick, state, events?, ack? }` | State sync. Your current view, the events since the last update, and the ids of your inputs now reflected in it. |

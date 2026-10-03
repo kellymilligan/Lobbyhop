@@ -189,7 +189,8 @@ All of these are plain fields: read them whenever you render.
 | `room.error` | `{ code, reason }` on a fatal error (out of date, full, kicked). The socket stops retrying. |
 | `room.phase` | `'lobby' \| 'playing' \| 'over'` |
 | `room.seat`, `room.host`, `room.me` | Your seat (null when spectating), whether you're host, and your member entry. |
-| `room.members` | `{ seat, name, colour, connected, host, meta }[]` |
+| `room.members` | `{ seat, name, colour, connected, host, ready, meta }[]` |
+| `room.ready`, `room.allReady`, `room.notReady` | Whether you're ready; whether every connected non-host player is; and who isn't. |
 | `room.settings`, `room.paused`, `room.spectators`, `room.chat`, `room.rtt` | |
 | `room.state` | Lockstep: your local simulation. State sync: your latest view. Null in the lobby. |
 | `room.pending` | Commands you've sent that aren't confirmed yet: `{ id, cmd, at }[]`. Draw these as optimistic "ghosts". |
@@ -198,8 +199,8 @@ All of these are plain fields: read them whenever you render.
 ### Actions
 
 `room.submit(cmd)` · `room.setProfile({ name, colour, meta })` · `room.say(text)` ·
-`room.start()` · `room.setSettings({...})` · `room.setPaused(bool)` · `room.toLobby()` ·
-`room.kick(seat)` · `room.leave()`. The server ignores host-only actions from non-hosts.
+`room.setReady(bool)` · `room.start()` · `room.setSettings({...})` · `room.setPaused(bool)` ·
+`room.toLobby()` · `room.kick(seat)` · `room.leave()`. The server ignores host-only actions from non-hosts.
 
 ### Events
 
@@ -300,7 +301,21 @@ play. It includes:
 - the share link with copy (native share on phones);
 - a name field and colour swatches (taken colours are disabled);
 - seats, with host, away and kick controls;
-- host settings, chat, and start (disabled until `seats.min`).
+- host settings, chat, and start (disabled until `seats.min`);
+- ready-up (below).
+
+- **Ready-up:** players toggle "I'm ready", seats show a ready chip, and the
+  host's button reads "Start · 2/3 ready".
+  - It's a soft signal. If anyone isn't ready, the host gets "Not everyone is
+    ready (names). Start anyway?" and can go ahead.
+  - The host doesn't ready up: starting is how the host says ready.
+  - Ready clears when a game starts and when the host changes settings, so
+    players confirm the new rules.
+  - It also works at game over, for a rematch.
+  - Disconnected players aren't waited on.
+  - Pass `ready: false` to hide it.
+  - For a custom lobby, use `room.setReady`, `room.allReady` and
+    `room.notReady`.
 
 - **Colours:** lobby colours come from `seats.palette`. If players have fixed
   roles with fixed colours (red and yellow discs, white and black pieces),

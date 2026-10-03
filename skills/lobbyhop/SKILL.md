@@ -134,7 +134,7 @@ import { getRoomCode, joinRoom } from 'lobbyhop/client';
 import { mountLobby, mountStatus } from 'lobbyhop/lobby-ui';
 
 const room = joinRoom(game, { room: getRoomCode()!, host: import.meta.env.VITE_ROOM_HOST });
-mountLobby(room, { title: 'My Game', settings: [/* toggle | number | select fields matching settings keys */] });
+mountLobby(room, { title: 'My Game', settings: [/* toggle | number | select fields matching settings keys */] });  // includes ready-up; ready: false hides it
 mountStatus(room);
 (window as any).lobbyhop = { room };   // for e2e tests and debugging
 ```

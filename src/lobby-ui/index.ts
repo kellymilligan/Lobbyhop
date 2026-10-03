@@ -41,6 +41,16 @@ export interface LobbyLabels {
   toLobby: string;
   chat: string;
   kick: string;
+  /** Button for a player who isn't ready yet. */
+  ready: string;
+  /** Button for a player who is ready (click to undo). */
+  readyOn: string;
+  /** Chip on a ready player's seat. */
+  readyChip: string;
+  readyCount: (ready: number, total: number) => string;
+  notReadyConfirm: (names: string[]) => string;
+  startAnyway: string;
+  cancel: string;
 }
 
 export interface LobbyOptions<G extends AnyGame = AnyGame> {
@@ -57,6 +67,12 @@ export interface LobbyOptions<G extends AnyGame = AnyGame> {
   colours?: boolean;
   /** Show chat (default true). */
   chat?: boolean;
+  /**
+   * Show ready-up (default true): players toggle "I'm ready", seats show who is,
+   * and the host gets a "start anyway?" confirmation if anyone isn't. It never
+   * blocks the host.
+   */
+  ready?: boolean;
   /** Show the panel when the game is over, with rematch / back-to-lobby (default true). */
   showOver?: boolean;
   /** Where the game-over panel sits: 'bottom' (default; keeps the final board visible) or 'center'. */
@@ -95,6 +111,13 @@ const LABELS: LobbyLabels = {
   toLobby: 'Back to lobby',
   chat: 'Say something…',
   kick: 'Remove',
+  ready: "I'm ready",
+  readyOn: 'Ready ✓',
+  readyChip: 'ready',
+  readyCount: (n, total) => `${n}/${total} ready`,
+  notReadyConfirm: (names) => `Not everyone is ready (${names.join(', ')}). Start anyway?`,
+  startAnyway: 'Start anyway',
+  cancel: 'Cancel',
 };
 
 const CSS = `
@@ -112,6 +135,7 @@ const CSS = `
 .lh-panel button:hover:not(:disabled){background:rgba(255,255,255,.16)}
 .lh-panel button:disabled{opacity:.45;cursor:default}
 .lh-panel button.lh-primary{background:var(--lh-accent,#7c9cff);color:var(--lh-accent-fg,#0b0d14);border-color:transparent;font-weight:600}
+.lh-panel button.lh-primary:hover:not(:disabled){background:var(--lh-accent,#7c9cff);filter:brightness(1.1)}
 .lh-swatches{display:flex;flex-wrap:wrap;gap:8px}
 .lh-swatch{width:26px;height:26px;padding:0!important;border-radius:50%!important;border:2px solid transparent!important}
 .lh-swatch.lh-on{border-color:var(--lh-fg,#fff)!important;box-shadow:0 0 0 2px rgba(0,0,0,.4) inset}
@@ -123,6 +147,10 @@ const CSS = `
 .lh-seat .lh-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lh-dot{width:12px;height:12px;border-radius:50%;flex:none;background:rgba(255,255,255,.2)}
 .lh-chip{font-size:11px;padding:1px 6px;border-radius:99px;background:rgba(255,255,255,.12);color:var(--lh-dim,rgba(243,244,248,.7))}
+.lh-chip.lh-ready{background:var(--lh-ready-bg,rgba(48,164,108,.28));color:var(--lh-ready,#7ee2a8)}
+.lh-panel button.lh-ready-on,.lh-panel button.lh-ready-on:hover:not(:disabled){background:var(--lh-ready-bg,rgba(48,164,108,.28));border-color:var(--lh-ready,#7ee2a8);color:var(--lh-ready,#7ee2a8)}
+.lh-confirm{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:12px;background:rgba(255,210,122,.1);border:1px solid rgba(255,210,122,.35)}
+.lh-confirm p{margin:0}
 .lh-x{padding:0 6px!important;border:none!important;background:none!important;opacity:.5}
 .lh-x:hover{opacity:1}
 .lh-toggle{display:flex;gap:8px;align-items:center;cursor:pointer}
@@ -173,6 +201,9 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
   const link = shareLink(code, param);
   const showColours = opts.colours !== false;
   const showChat = opts.chat !== false;
+  const showReady = opts.ready !== false;
+  /** The host clicked Start while someone wasn't ready: ask before starting. */
+  let confirming = false;
 
   const overlay = el('div', { class: 'lh-overlay' });
   const panel = el('div', { class: 'lh-panel', role: 'dialog', 'aria-label': opts.title ?? 'Lobby' });
@@ -248,11 +279,43 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
     return control;
   };
 
+  // Ready-up: players toggle it; the host starts, after a confirmation if anyone isn't ready.
+  const readyButton = () =>
+    el(
+      'button',
+      { class: room.ready ? 'lh-ready-on' : '', 'aria-pressed': String(room.ready), onclick: () => room.setReady(!room.ready) },
+      room.ready ? L.readyOn : L.ready,
+    );
+  const tryStart = () => {
+    if (showReady && !room.allReady) {
+      confirming = true;
+      render();
+    } else room.start();
+  };
+  const confirmBox = () =>
+    el(
+      'div',
+      { class: 'lh-confirm', role: 'alertdialog' },
+      el('p', {}, L.notReadyConfirm(room.notReady.map((m) => m.name))),
+      el(
+        'div',
+        { class: 'lh-row' },
+        el('button', { class: 'lh-primary', onclick: () => ((confirming = false), room.start()) }, L.startAnyway),
+        el('button', { onclick: () => ((confirming = false), render()) }, L.cancel),
+      ),
+    );
+  const readyCount = () => {
+    const others = room.members.filter((m) => m.connected && !m.host);
+    return showReady && others.length ? ` · ${L.readyCount(others.filter((m) => m.ready).length, others.length)}` : '';
+  };
+
   const render = () => {
     const over = room.phase === 'over';
     const visible = room.error !== null || room.phase === 'lobby' || (over && opts.showOver !== false);
     overlay.style.display = visible ? '' : 'none';
     if (!visible) return;
+    // A confirmation is moot once everyone's ready, or once the room moves on.
+    if (confirming && (!room.host || room.allReady || room.phase === 'playing')) confirming = false;
     overlay.style.alignItems = over && !room.error && opts.overPlacement !== 'center' ? 'flex-end' : '';
     const focused = document.activeElement;
     const keep = [nameInput, chatInput, linkInput].includes(focused as HTMLInputElement) ? (focused as HTMLInputElement) : null;
@@ -267,11 +330,19 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
     if (over) {
       const text = opts.overText?.(room);
       if (text) panel.append(el('p', { style: 'margin:0' }, text));
+      if (confirming) {
+        panel.append(confirmBox());
+        return;
+      }
       panel.append(
         el(
           'div',
           { class: 'lh-actions' },
-          room.host ? el('div', { class: 'lh-row' }, el('button', { class: 'lh-primary', onclick: () => room.start() }, L.rematch), el('button', { onclick: () => room.toLobby() }, L.toLobby)) : el('span', { class: 'lh-dim' }, L.waiting),
+          room.host
+            ? el('div', { class: 'lh-row' }, el('button', { class: 'lh-primary', onclick: tryStart }, L.rematch + readyCount()), el('button', { onclick: () => room.toLobby() }, L.toLobby))
+            : room.seat !== null && showReady
+              ? el('div', { class: 'lh-row' }, readyButton(), el('span', { class: 'lh-dim' }, L.waiting))
+              : el('span', { class: 'lh-dim' }, L.waiting),
           el('button', { onclick: leave }, L.leave),
         ),
       );
@@ -317,6 +388,7 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
           el('span', { class: 'lh-name' }, m ? m.name : empty),
           m?.seat === room.seat && el('span', { class: 'lh-chip' }, L.you),
           m?.host && el('span', { class: 'lh-chip' }, L.host),
+          showReady && m && !m.host && m.ready && el('span', { class: 'lh-chip lh-ready' }, L.readyChip),
           m && !m.connected && el('span', { class: 'lh-chip' }, L.away),
           m && room.host && m.seat !== room.seat && el('button', { class: 'lh-x', title: L.kick, 'aria-label': `${L.kick} ${m.name}`, onclick: () => room.kick(m.seat) }, '✕'),
         ),
@@ -337,16 +409,22 @@ export function mountLobby<G extends AnyGame>(room: RoomClient<G>, opts: LobbyOp
     }
 
     const enough = room.members.length >= room.rules.min;
-    panel.append(
-      el(
-        'div',
-        { class: 'lh-actions' },
-        room.host
-          ? el('button', { class: 'lh-primary', disabled: !room.connected || !enough, onclick: () => room.start() }, enough ? L.start : L.needPlayers(room.rules.min))
-          : el('span', { class: 'lh-dim' }, room.spectating ? '' : L.waiting),
-        el('button', { onclick: leave }, L.leave),
-      ),
-    );
+    if (confirming) panel.append(confirmBox());
+    else
+      panel.append(
+        el(
+          'div',
+          { class: 'lh-actions' },
+          room.host
+            ? el('button', { class: 'lh-primary', disabled: !room.connected || !enough, onclick: tryStart }, enough ? L.start + readyCount() : L.needPlayers(room.rules.min))
+            : room.spectating
+              ? el('span')
+              : showReady
+                ? el('div', { class: 'lh-row' }, readyButton(), el('span', { class: 'lh-dim' }, L.waiting))
+                : el('span', { class: 'lh-dim' }, L.waiting),
+          el('button', { onclick: leave }, L.leave),
+        ),
+      );
     if (keep) keep.focus();
   };
 

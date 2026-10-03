@@ -137,6 +137,21 @@ export class RoomClient<G extends AnyGame> {
     return this.status === 'open' && this.seat === null && this.members.length > 0;
   }
 
+  /** Whether you've said you're ready to start. */
+  get ready(): boolean {
+    return this.me?.ready ?? false;
+  }
+
+  /** Connected players other than the host who haven't said they're ready. The host readies by starting. */
+  get notReady(): MemberView[] {
+    return this.members.filter((m) => m.connected && !m.host && !m.ready);
+  }
+
+  /** True when every connected non-host player is ready (a soft signal: the host can start regardless). */
+  get allReady(): boolean {
+    return this.notReady.length === 0;
+  }
+
   /** Subscribe to an event; returns an unsubscribe function. */
   on<K extends keyof RoomEvents<G>>(event: K, fn: RoomEvents<G>[K]): () => void {
     const set = (this.listeners[event] ??= new Set() as never) as Set<RoomEvents<G>[K]>;
@@ -260,6 +275,11 @@ export class RoomClient<G extends AnyGame> {
     this.profile = { ...this.profile, ...p };
     this.send({ t: 'profile', ...p });
     this.emit('change');
+  }
+
+  /** Say you're ready (or not) to start. Works in the lobby and at game over (for a rematch). Cleared when a game starts or the host changes settings. */
+  setReady(ready: boolean) {
+    this.send({ t: 'ready', ready });
   }
 
   /** Host: change settings (partial; validated by the server). */

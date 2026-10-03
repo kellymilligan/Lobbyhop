@@ -10,7 +10,7 @@ approach, and what to think about. Read it as a plan and a primer.
   - authoritative state sync (event-driven or real-time, with per-seat
     views).
 - **Rooms:**
-  - lobby and share links;
+  - lobby and share links, with soft ready-up;
   - token reconnect, which makes refresh-to-rejoin work;
   - host and host transfer, settings, start, pause, back to lobby, rematch;
   - spectators, chat, kick;

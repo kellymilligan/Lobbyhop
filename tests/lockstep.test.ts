@@ -56,6 +56,71 @@ describe('lobby', () => {
     expect(mb.colour).not.toBe(a.me!.colour);
   });
 
+  it('players can ready up; it never blocks the host and clears when the game starts', () => {
+    const h = createHarness(brawl, { clients: 3, seed: 'ready' });
+    h.run(600);
+    const host = h.host();
+    const guests = h.clients.filter((c) => c !== host);
+    expect(host.allReady).toBe(false);
+    expect(host.notReady.map((m) => m.seat).sort()).toEqual(guests.map((g) => g.seat).sort());
+    guests[0].setReady(true);
+    h.run(600);
+    expect(host.members.find((m) => m.seat === guests[0].seat)!.ready).toBe(true);
+    expect(guests[0].ready).toBe(true);
+    expect(host.notReady.map((m) => m.seat)).toEqual([guests[1].seat]);
+    // Soft: the host can start with someone not ready.
+    h.startGame();
+    expect(h.clients.every((c) => c.phase === 'playing')).toBe(true);
+    expect(host.members.every((m) => !m.ready)).toBe(true);
+    // Can't toggle mid-game.
+    guests[1].setReady(true);
+    h.run(600);
+    expect(host.members.every((m) => !m.ready)).toBe(true);
+  });
+
+  it('everyone ready → allReady; changing settings un-readies; unready works', () => {
+    const h = createHarness(brawl, { clients: 3, seed: 'ready2' });
+    h.run(600);
+    const host = h.host();
+    const guests = h.clients.filter((c) => c !== host);
+    for (const g of guests) g.setReady(true);
+    h.run(600);
+    expect(host.allReady).toBe(true);
+    // The host's own flag doesn't matter: starting is how the host says ready.
+    expect(host.ready).toBe(false);
+    host.setSettings({ minutes: 5 });
+    h.run(600);
+    expect(host.allReady).toBe(false);
+    expect(guests.every((g) => !g.ready)).toBe(true);
+    // Re-sending identical settings doesn't clear it again.
+    for (const g of guests) g.setReady(true);
+    h.run(600);
+    host.setSettings({ minutes: 5 });
+    h.run(600);
+    expect(host.allReady).toBe(true);
+    guests[0].setReady(false);
+    h.run(600);
+    expect(host.notReady.map((m) => m.seat)).toEqual([guests[0].seat]);
+  });
+
+  it('players can ready up for a rematch at game over; disconnected players are not waited on', () => {
+    const h = createHarness(brawl, { clients: 3, seed: 'ready3' });
+    h.run(600);
+    h.startGame();
+    h.run(1000);
+    h.clients[0].submit({ type: 'end' });
+    h.until(() => h.clients.every((c) => c.phase === 'over'));
+    const host = h.host();
+    const guests = h.clients.filter((c) => c !== host);
+    guests[0].setReady(true);
+    h.disconnect(h.clients.indexOf(guests[1]));
+    h.run(600);
+    expect(host.allReady).toBe(true);
+    host.start();
+    h.until(() => host.phase === 'playing' && host.state !== null);
+    expect(host.members.every((m) => !m.ready)).toBe(true);
+  });
+
   it('rejects clients for another game version', () => {
     const sent: ServerMsg[] = [];
     const room = new RoomCore(brawl, { send: (_c, d) => sent.push(JSON.parse(d)), close: () => {}, setClock: () => {}, now: () => 0 });

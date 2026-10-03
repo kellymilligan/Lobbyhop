@@ -138,12 +138,25 @@ if (info.phase === 'lobby') {
     const swatch = p.locator('.lh-swatch:not(:disabled)').nth(1);
     if (i > 0 && (await swatch.count())) await swatch.click();
   }
-  await wait(800);
-  await pages[0].screenshot({ path: join(out, 'lobby.png') });
   let hostPage = null;
   for (const p of pages) if ((await room0(p)).host) hostPage = p;
   if (!hostPage) throw new Error('no host');
+  // Ready-up: every guest but the last says ready, so the host sees the "start anyway?" check.
+  const guests = pages.filter((p) => p !== hostPage);
+  for (const p of guests.slice(0, -1)) {
+    const ready = p.locator('.lh-actions button[aria-pressed]');
+    if (await ready.count()) await ready.click();
+  }
+  await wait(800);
+  await hostPage.screenshot({ path: join(out, 'lobby.png') });
+  if (guests.length) await guests[0].screenshot({ path: join(out, 'lobby-guest.png') });
   await hostPage.click('.lh-panel .lh-primary');
+  const confirm = hostPage.locator('.lh-confirm .lh-primary');
+  if (await confirm.count()) {
+    await hostPage.screenshot({ path: join(out, 'lobby-confirm.png') });
+    console.log('host confirmed "start anyway" (not everyone was ready)');
+    await confirm.click();
+  }
 }
 for (const p of pages) await p.waitForFunction(() => window.lobbyhop.room.phase !== 'lobby' && window.lobbyhop.room.state, null, { timeout: 20_000 });
 console.log('playing');

@@ -76,6 +76,7 @@ interface Member {
   conn: string | null;
   goneAt: number | null;
   idleFired: boolean;
+  ready: boolean;
 }
 
 interface Conn {
@@ -241,11 +242,21 @@ export class RoomCore<G extends AnyGame = AnyGame> {
         this.broadcastRoom();
         this.persist();
         break;
-      case 'settings':
+      case 'settings': {
         if (!isHost || this.phase !== 'lobby') return;
-        this.settings = validateSettings(this.game, msg.settings, this.settings) as Json;
+        const next = validateSettings(this.game, msg.settings, this.settings) as Json;
+        // Players readied up for the old rules; ask them to confirm the new ones.
+        if (JSON.stringify(next) !== JSON.stringify(this.settings)) this.clearReady();
+        this.settings = next;
         this.broadcastRoom();
         this.persist();
+        break;
+      }
+      case 'ready':
+        // Between games only: in the lobby, or at game over (ready for a rematch).
+        if (this.phase === 'playing' || m.ready === !!msg.ready) return;
+        m.ready = !!msg.ready;
+        this.broadcastRoom();
         break;
       case 'start':
         if (!isHost || this.phase === 'playing') return;
@@ -331,7 +342,7 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     this.phase = save.phase;
     this.paused = save.paused;
     this.settings = save.settings;
-    this.members = save.members.map((m) => ({ ...m, conn: null, goneAt: now, idleFired: false }));
+    this.members = save.members.map((m) => ({ ...m, conn: null, goneAt: now, idleFired: false, ready: false }));
     this.banned = new Set(save.banned);
     this.chat = save.chat ?? [];
     this.engine.restore(save.engine);
@@ -398,7 +409,7 @@ export class RoomCore<G extends AnyGame = AnyGame> {
   /** Seats a newcomer if there's room, or returns null (spectator). */
   private admit(token: string, msg: Extract<ClientMsg, { t: 'hello' }>): Member | null {
     const make = (seat: number): Member => {
-      const m: Member = { token, name: cleanName(msg.name), colour: '', meta: cleanMeta(msg.meta ?? null), seat, conn: null, goneAt: null, idleFired: false };
+      const m: Member = { token, name: cleanName(msg.name), colour: '', meta: cleanMeta(msg.meta ?? null), seat, conn: null, goneAt: null, idleFired: false, ready: false };
       m.colour = this.freeColour(String(msg.colour ?? ''), m);
       return m;
     };
@@ -426,12 +437,17 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     const seats = [...this.members].sort((a, b) => a.seat - b.seat).map((m) => this.seatInfo(m));
     const seed = this.io.seed?.() ?? randomSeed();
     this.engine.start({ seed, seats, settings: this.settings });
+    this.clearReady();
     this.phase = 'playing';
     this.paused = false;
     this.broadcastRoom();
     for (const v of this.viewers()) this.engine.snapshot(v.conn, v.seat);
     this.updateClock();
     this.persist();
+  }
+
+  private clearReady() {
+    for (const m of this.members) m.ready = false;
   }
 
   private over() {
@@ -564,7 +580,7 @@ export class RoomCore<G extends AnyGame = AnyGame> {
 
   private memberViews(): MemberView[] {
     const host = this.hostOf();
-    return this.members.map((m) => ({ seat: m.seat, name: m.name, colour: m.colour, connected: !!m.conn, host: m === host, meta: m.meta }));
+    return this.members.map((m) => ({ seat: m.seat, name: m.name, colour: m.colour, connected: !!m.conn, host: m === host, ready: m.ready, meta: m.meta }));
   }
 
   private broadcastRoom(fresh?: string) {

@@ -41,7 +41,7 @@ Shared by client and server.
 - config: `game` (the definition), `rules` (resolved: `max`, `min`,
   `palette`, `tickRate`, `turnMs`, `hashEvery`, `sendRate`, `lobby`,
   `version`);
-- getters: `connected`, `spectating`.
+- getters: `connected`, `spectating`, `ready` (you), `allReady`, `notReady` (connected non-host players who aren't ready).
 
 **Methods:**
 
@@ -51,6 +51,7 @@ Shared by client and server.
 | `submit(cmd) → id \| null` | Send intent. |
 | `setProfile({ name?, colour?, meta? })` | |
 | `say(text)` | |
+| `setReady(bool)` | Ready-up, in the lobby or at game over. Soft: never blocks `start()`. |
 | `start()`, `setSettings(partial)`, `setPaused(bool)`, `toLobby()`, `kick(seat)` | Host only. |
 | `on(event, fn) → unsubscribe` | Events: `change`, `notice`, `reject`, `chat`, `snapshot`, `phase`. |
 | `opened()`, `closed(willRetry)`, `receive(msg)`, `ping()` | Transport hooks, for custom transports. |
@@ -59,7 +60,7 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `mountLobby(room, { title?, subtitle?, settings?, emptySeat?, colours?, chat?, showOver?, overPlacement?, overText?, onLeave?, param?, code?, labels?, container? }) → { el, destroy }` | The lobby overlay. |
+| `mountLobby(room, { title?, subtitle?, settings?, emptySeat?, colours?, chat?, ready?, showOver?, overPlacement?, overText?, onLeave?, param?, code?, labels?, container? }) → { el, destroy }` | The lobby overlay. |
 | `mountStatus(room, { pause?, param?, container? }) → { el, destroy }` | The in-game chip. |
 | Types `SettingField` (`toggle` \| `number` \| `select`), `LobbyLabels`, `LobbyOptions` | |
 

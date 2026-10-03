@@ -4,7 +4,7 @@
  */
 import type { Json } from './game.js';
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export type RoomPhase = 'lobby' | 'playing' | 'over';
 
@@ -15,6 +15,8 @@ export interface MemberView {
   colour: string;
   connected: boolean;
   host: boolean;
+  /** Says they're ready to start (a soft signal: the host can start anyway). Cleared when a game starts or settings change. */
+  ready: boolean;
   meta: Json | null;
 }
 
@@ -44,6 +46,7 @@ export type ClientMsg =
   | { t: 'hello'; v: number; game: string; token: string; name: string; colour: string; meta?: Json | null }
   | { t: 'profile'; name?: string; colour?: string; meta?: Json | null }
   | { t: 'settings'; settings: Json }
+  | { t: 'ready'; ready: boolean }
   | { t: 'start' }
   | { t: 'pause'; paused: boolean }
   | { t: 'toLobby' }
