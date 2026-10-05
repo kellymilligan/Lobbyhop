@@ -3,7 +3,7 @@
 What's next, roughly in order. For each item: what it is, the recommended
 approach, and what to think about. Read it as a plan and a primer.
 
-## Shipped in v0.1
+## Shipped in v0.1 and v0.2
 
 - **Two sync models:**
   - server-clocked lockstep (the proven Siegeline engine);
