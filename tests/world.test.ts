@@ -51,6 +51,12 @@ describe('persistent worlds', () => {
     expect(frames.every((f) => f.length < 120)).toBe(true);
   });
 
+  it('lobby-less rooms seat late arrivals even without a join hook', () => {
+    const h = createHarness({ ...world, hooks: {} }, { clients: 3, seed: 'nojoin' });
+    h.run(1500);
+    expect(h.clients.map((c) => c.seat).sort()).toEqual([0, 1, 2]);
+  });
+
   it('a never-expiring room keeps its world through long empty periods, and restores it', () => {
     const h = createHarness(world, { clients: 1, seed: 'forever', room: { emptyTtlMs: null } });
     h.run(1000);

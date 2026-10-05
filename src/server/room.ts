@@ -466,7 +466,8 @@ export class RoomCore<G extends AnyGame = AnyGame> {
       return m;
     }
     const join = this.game.hooks?.join;
-    if (this.phase !== 'playing' || !join) return null;
+    // Mid-game arrivals get a seat in drop-in (lobby-less) rooms, or when the game handles joins; otherwise they watch.
+    if (this.phase !== 'playing' || (!join && this.rules.lobby)) return null;
     const taken = new Set(this.members.map((x) => x.seat));
     let seat = 0;
     while (taken.has(seat)) seat++;
@@ -474,7 +475,7 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     const m = make(seat);
     this.members.push(m);
     this.members.sort((a, b) => a.seat - b.seat);
-    const cmd = join(this.seatInfo(m));
+    const cmd = join?.(this.seatInfo(m));
     if (cmd != null) this.engine.system(seat, cmd);
     return m;
   }

@@ -69,7 +69,7 @@ export interface SettingsRules<Settings> {
  * turn stream, so every client applies them on the same tick.
  */
 export interface GameHooks<C> {
-  /** Someone joined mid-game (rooms with `lobby: false`, or late joiners). Without this hook, late joiners spectate. */
+  /** Someone joined mid-game. In lobby-less rooms everyone gets a seat anyway; in lobby rooms, late joiners spectate unless this hook exists. */
   join?(info: SeatInfo): C | null;
   /** A seat has been disconnected for `idleMs` (hand it to a bot, forfeit, …). */
   idle?(seat: number): C | null;
