@@ -5,6 +5,7 @@
  */
 import type { Json, Setup, StateSyncGame } from '../shared/game.js';
 import type { EngineHost, ServerEngine } from './engine.js';
+import { cloneJson, diff } from '../shared/patch.js';
 import { safeApply } from './engine.js';
 
 export class StateSyncEngine<S> implements ServerEngine {
@@ -14,6 +15,8 @@ export class StateSyncEngine<S> implements ServerEngine {
   private dirty = false;
   private acks = new Map<string, number[]>();
   private last = new Map<string, string>();
+  /** Delta mode: the last view each audience (shared, or one seat) was sent; every connection in it holds exactly this. */
+  private bases = new Map<string, Json>();
   private clockBase = 0;
   private tickBase = 0;
   private lastSend = 0;
@@ -43,6 +46,7 @@ export class StateSyncEngine<S> implements ServerEngine {
     this.events = [];
     this.acks.clear();
     this.last.clear();
+    this.bases.clear();
     this.dirty = false;
     this.rebase();
   }
@@ -53,6 +57,7 @@ export class StateSyncEngine<S> implements ServerEngine {
     this.events = [];
     this.acks.clear();
     this.last.clear();
+    this.bases.clear();
   }
 
   rebase() {
@@ -127,6 +132,12 @@ export class StateSyncEngine<S> implements ServerEngine {
     if (!this.dirty && this.acks.size === 0 && this.events.length === 0) return;
     const events = this.events.length ? JSON.stringify(this.events) : '';
     this.events = [];
+    if (this.game.delta) {
+      this.flushDelta(s, events);
+      this.acks.clear();
+      this.dirty = false;
+      return;
+    }
     const view = this.game.view;
     const shared = view ? '' : JSON.stringify(s);
     const bySeat = new Map<number | null, string>();
@@ -153,6 +164,17 @@ export class StateSyncEngine<S> implements ServerEngine {
   snapshot(conn: string, seat: number | null) {
     const s = this.state;
     if (!s) return;
+    if (this.game.delta) {
+      // Join the audience at its base, so the next patch applies cleanly.
+      const key = this.audience(seat);
+      let base = this.bases.get(key);
+      if (base === undefined) {
+        base = cloneJson((this.game.view ? this.game.view(s, seat) : s) as Json);
+        this.bases.set(key, base);
+      }
+      this.host.send(conn, `{"t":"snapshot","tick":${this.tick},"state":${JSON.stringify(base)}}`);
+      return;
+    }
     const json = JSON.stringify(this.game.view ? this.game.view(s, seat) : s);
     this.last.set(conn, json);
     this.host.send(conn, `{"t":"snapshot","tick":${this.tick},"state":${json}}`);
@@ -175,6 +197,46 @@ export class StateSyncEngine<S> implements ServerEngine {
     this.events = [];
     this.acks.clear();
     this.last.clear();
+    this.bases.clear();
     this.rebase();
+  }
+
+  /** Which shared base a viewer belongs to (delta mode). */
+  private audience(seat: number | null): string {
+    return this.game.view ? `s${seat}` : '*';
+  }
+
+  /** Delta mode: patch each audience from its base to the current view. */
+  private flushDelta(s: S, events: string) {
+    const view = this.game.view;
+    const prepared = new Map<string, { body: string; next: Json } | null>();
+    for (const v of this.host.viewers()) {
+      const key = this.audience(v.seat);
+      let entry = prepared.get(key);
+      if (entry === undefined) {
+        const current = (view ? view(s, v.seat) : s) as Json;
+        const base = this.bases.get(key);
+        if (base === undefined) entry = { body: `"state":${JSON.stringify(current)}`, next: cloneJson(current) };
+        else {
+          const ops = diff(base, current);
+          if (!ops.length) entry = null;
+          else {
+            // A patch bigger than the view itself isn't worth it: send the view.
+            const patch = JSON.stringify(ops);
+            const full = patch.length > 2048 ? JSON.stringify(current) : '';
+            entry = { body: full && full.length < patch.length ? `"state":${full}` : `"patch":${patch}`, next: cloneJson(current) };
+          }
+        }
+        prepared.set(key, entry);
+      }
+      const ack = this.acks.get(v.conn);
+      if (!entry && !events && !ack) continue;
+      let msg = `{"t":"state","tick":${this.tick}`;
+      if (entry) msg += `,${entry.body}`;
+      if (events) msg += `,"events":${events}`;
+      if (ack) msg += `,"ack":${JSON.stringify(ack)}`;
+      this.host.send(v.conn, msg + '}');
+    }
+    for (const [key, entry] of prepared) if (entry) this.bases.set(key, entry.next);
   }
 }

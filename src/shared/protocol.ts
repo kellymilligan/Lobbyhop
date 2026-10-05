@@ -3,8 +3,9 @@
  * See docs/PROTOCOL.md for the full semantics.
  */
 import type { Json } from './game.js';
+import type { Patch } from './patch.js';
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export type RoomPhase = 'lobby' | 'playing' | 'over';
 
@@ -64,8 +65,12 @@ export type ServerMsg =
   | { t: 'snapshot'; tick: number; state: Json }
   /** Lockstep: apply `cmds` at tick `at`, then you may simulate up to `upTo`. */
   | { t: 'turn'; at: number; upTo: number; cmds: StampedCommand[] }
-  /** State sync: your current view, events since the last update, and ids of your inputs now reflected in it. */
-  | { t: 'state'; tick: number; state: Json; events?: Json[]; ack?: number[] }
+  /**
+   * State sync: your current view (or, for `delta` games, a `patch` to apply to
+   * your last one), events since the last update, and ids of your inputs now
+   * reflected in it.
+   */
+  | { t: 'state'; tick: number; state?: Json; patch?: Patch; events?: Json[]; ack?: number[] }
   | { t: 'reject'; id?: number; reason: string }
   | { t: 'desync'; tick: number }
   | { t: 'chat'; line: ChatLine }

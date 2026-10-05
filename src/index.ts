@@ -15,3 +15,5 @@
  */
 export * from './shared/game.js';
 export * from './shared/protocol.js';
+export { applyPatch, cloneJson, diff, jsonEqual } from './shared/patch.js';
+export type { Patch, PatchOp } from './shared/patch.js';

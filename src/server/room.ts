@@ -27,7 +27,7 @@ export interface RoomIO {
   /** A fresh random seed (default: crypto.randomUUID()). */
   seed?(): string;
   /** Persist the room (null means it's finished: delete it). Optional. */
-  save?(data: RoomSave | null): void;
+  save?(data: RoomSave | null, json?: string): void;
   /** Call `room.alarm()` after `ms` (null cancels). Used to clean up empty rooms. Optional. */
   schedule?(ms: number | null): void;
   log?(...args: unknown[]): void;
@@ -46,8 +46,11 @@ export interface RoomLimits {
 
 export interface RoomOptions {
   limits?: RoomLimits;
-  /** An empty room is deleted after this long (default 15 min). */
-  emptyTtlMs?: number;
+  /**
+   * An empty room is deleted after this long (default 15 min). `null` (or
+   * Infinity) keeps it forever: use that for persistent worlds.
+   */
+  emptyTtlMs?: number | null;
   /** While playing, persist at most this often (default 10 s). */
   saveEveryMs?: number;
   /** Chat lines kept for newcomers (default 50). */
@@ -122,7 +125,8 @@ export class RoomCore<G extends AnyGame = AnyGame> {
   private lastSave = 0;
   private clockMs: number | null = null;
   private readonly limits: Required<RoomLimits>;
-  private readonly opts: Required<Omit<RoomOptions, 'limits'>>;
+  private readonly opts: { emptyTtlMs: number | null; saveEveryMs: number; chatHistory: number };
+  private lastSavedJson = '';
   private readonly log: (...a: unknown[]) => void;
 
   constructor(
@@ -139,7 +143,12 @@ export class RoomCore<G extends AnyGame = AnyGame> {
       chatPerSecond: options.limits?.chatPerSecond ?? 1,
       maxMessageBytes: options.limits?.maxMessageBytes ?? 32_768,
     };
-    this.opts = { emptyTtlMs: options.emptyTtlMs ?? 15 * 60_000, saveEveryMs: options.saveEveryMs ?? 10_000, chatHistory: options.chatHistory ?? 50 };
+    const ttl = options.emptyTtlMs === undefined ? 15 * 60_000 : options.emptyTtlMs;
+    this.opts = {
+      emptyTtlMs: ttl === null || !Number.isFinite(ttl) ? null : Math.max(0, ttl),
+      saveEveryMs: options.saveEveryMs ?? 10_000,
+      chatHistory: options.chatHistory ?? 50,
+    };
     this.log = io.log ?? (() => {});
     const host: EngineHost = {
       send: (conn, data) => this.io.send(conn, data),
@@ -206,7 +215,7 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     if (this.conns.size === 0) {
       this.updateClock();
       this.persist();
-      this.io.schedule?.(this.opts.emptyTtlMs);
+      if (this.opts.emptyTtlMs !== null) this.io.schedule?.(this.opts.emptyTtlMs);
     }
   }
 
@@ -313,7 +322,8 @@ export class RoomCore<G extends AnyGame = AnyGame> {
 
   /** Called after `io.schedule(ms)` elapses: deletes the room if it's still empty. */
   alarm() {
-    if (this.conns.size > 0) return;
+    if (this.conns.size > 0 || this.opts.emptyTtlMs === null) return;
+    this.lastSavedJson = '';
     this.io.save?.(null);
     this.members = [];
     this.banned.clear();
@@ -343,9 +353,30 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     };
   }
 
-  /** Restore a saved room (call before any connections). Saves from another game version are ignored. */
+  /**
+   * Restore a saved room (call before any connections). A save from an older
+   * version of the game is upgraded with `game.migrate` if it has one;
+   * otherwise (or for another game) it's ignored and the room starts fresh.
+   */
   restore(save: RoomSave | null | undefined) {
-    if (!save || save.v !== 1 || save.game !== this.rules.version) return false;
+    if (!save || save.v !== 1) return false;
+    let migrated = false;
+    if (save.game !== this.rules.version) {
+      const at = save.game.lastIndexOf('@');
+      const name = save.game.slice(0, at);
+      const from = Number(save.game.slice(at + 1));
+      const engine = save.engine as { tick: number; state: unknown } | null;
+      if (name !== this.game.name || !this.game.migrate || !Number.isFinite(from)) return false;
+      let state: unknown = null;
+      try {
+        state = engine ? this.game.migrate(engine.state, from) : null;
+      } catch (e) {
+        this.log('migrate threw', e);
+      }
+      if (engine && state == null) return false;
+      save = { ...save, game: this.rules.version, engine: engine ? ({ tick: engine.tick, state } as Json) : null };
+      migrated = true;
+    }
     const now = this.io.now();
     this.phase = save.phase;
     this.paused = save.paused;
@@ -356,13 +387,20 @@ export class RoomCore<G extends AnyGame = AnyGame> {
     this.engine.restore(save.engine);
     if (this.phase !== 'lobby' && !this.engine.running) this.phase = 'lobby';
     if (this.phase === 'lobby') this.members = [];
+    // Remember what's stored, so an unchanged world isn't rewritten (a migrated one is, on the next save).
+    this.lastSavedJson = migrated ? '' : JSON.stringify(this.serialize());
     return true;
   }
 
   private persist() {
     if (!this.io.save) return;
     this.lastSave = this.io.now();
-    this.io.save(this.serialize());
+    const data = this.serialize();
+    const json = JSON.stringify(data);
+    // Nothing changed since the last save (an idle world with people watching): skip the write.
+    if (json === this.lastSavedJson) return;
+    this.lastSavedJson = json;
+    this.io.save(data, json);
   }
 
   // -------------------------------------------------------------------------

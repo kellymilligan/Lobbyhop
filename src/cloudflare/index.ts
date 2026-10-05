@@ -49,6 +49,8 @@ export interface CloudflareRoomOptions extends RoomOptions {
   origins?: string[];
   /** Log room events with console.log (default false). */
   debug?: boolean;
+  /** Max simultaneous connections per room, players plus spectators (default 64). */
+  maxConnections?: number;
 }
 
 /** Largest chunk written to one storage value (well under every DO storage limit). */
@@ -108,7 +110,7 @@ export function createRoomServer<G extends AnyGame>(game: G, options: Cloudflare
             this.timer = ms === null ? null : setInterval(() => this.core.pump(), ms);
           },
           now: () => Date.now(),
-          save: (data) => this.persist(data),
+          save: (data, json) => this.persist(data, json),
           schedule: (ms) => {
             void (ms === null ? ctx.storage.deleteAlarm() : ctx.storage.setAlarm(Date.now() + ms));
           },
@@ -134,7 +136,7 @@ export function createRoomServer<G extends AnyGame>(game: G, options: Cloudflare
     async fetch(request: Request): Promise<Response> {
       if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected a WebSocket upgrade', { status: 426 });
       if (!originAllowed(request, options.origins)) return new Response('Origin not allowed', { status: 403 });
-      if (this.sockets.size >= MAX_CONNECTIONS) return new Response('Room is busy', { status: 503 });
+      if (this.sockets.size >= (options.maxConnections ?? MAX_CONNECTIONS)) return new Response('Room is busy', { status: 503 });
       const pair = new WebSocketPair();
       const client = pair[0];
       const server = pair[1];
@@ -156,7 +158,7 @@ export function createRoomServer<G extends AnyGame>(game: G, options: Cloudflare
       this.core.alarm();
     }
 
-    private persist(data: RoomSave | null) {
+    private persist(data: RoomSave | null, json?: string) {
       // Serialise writes so a slow save can't land after a newer one.
       this.saving = this.saving.then(async () => {
         const storage = this.ctx.storage;
@@ -165,10 +167,10 @@ export function createRoomServer<G extends AnyGame>(game: G, options: Cloudflare
           this.chunks = 0;
           return;
         }
-        const json = JSON.stringify(data);
-        const n = Math.max(1, Math.ceil(json.length / CHUNK));
+        const text = json ?? JSON.stringify(data);
+        const n = Math.max(1, Math.ceil(text.length / CHUNK));
         const entries: Record<string, unknown> = { 'room:n': n };
-        for (let i = 0; i < n; i++) entries[`room:${i}`] = json.slice(i * CHUNK, (i + 1) * CHUNK);
+        for (let i = 0; i < n; i++) entries[`room:${i}`] = text.slice(i * CHUNK, (i + 1) * CHUNK);
         const keys = Object.keys(entries);
         for (let i = 0; i < keys.length; i += 128) await storage.put(Object.fromEntries(keys.slice(i, i + 128).map((k) => [k, entries[k]])));
         if (this.chunks > n) await storage.delete(Array.from({ length: this.chunks - n }, (_, i) => `room:${n + i}`));

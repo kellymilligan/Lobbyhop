@@ -112,6 +112,7 @@ export function createNodeServer<G extends AnyGame>(game: G, options: NodeServer
     let alarm: ReturnType<typeof setTimeout> | null = null;
     let saveTimer: ReturnType<typeof setTimeout> | null = null;
     let latest: RoomSave | null = null;
+    let latestJson: string | null = null;
     const created: RoomCore = new RoomCore(
       game,
       {
@@ -130,8 +131,9 @@ export function createNodeServer<G extends AnyGame>(game: G, options: NodeServer
         },
         now: () => Date.now(),
         save: persistDir
-          ? (data) => {
+          ? (data, json) => {
               latest = data;
+              latestJson = json ?? null;
               if (data === null) {
                 if (saveTimer) clearTimeout(saveTimer);
                 saveTimer = null;
@@ -143,7 +145,7 @@ export function createNodeServer<G extends AnyGame>(game: G, options: NodeServer
                 saveTimer = null;
                 if (!latest) return;
                 const tmp = `${roomFile(code)}.tmp`;
-                writeFileSync(tmp, JSON.stringify(latest));
+                writeFileSync(tmp, latestJson ?? JSON.stringify(latest));
                 renameSync(tmp, roomFile(code));
               }, 250);
               saveTimer.unref?.();

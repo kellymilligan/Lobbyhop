@@ -12,6 +12,7 @@ import { rules, startBlocker } from '../shared/game.js';
 import type { ChatLine, ClientMsg, ErrorCode, MemberView, RoomPhase, ServerMsg, StampedCommand } from '../shared/protocol.js';
 import { PROTOCOL_VERSION } from '../shared/protocol.js';
 import { stateHash } from '../det/index.js';
+import { applyPatch } from '../shared/patch.js';
 
 /** How far behind the frontier lockstep aims to run, as a jitter buffer (ticks). */
 const TARGET_LAG = 3;
@@ -233,8 +234,18 @@ export class RoomClient<G extends AnyGame> {
         this.frontier = Math.max(this.frontier, msg.upTo);
         return; // Hot path: no 'change' event for every turn.
       case 'state': {
+        if (msg.state === undefined && msg.patch === undefined) {
+          // Events and/or acks only: the view didn't change.
+          if (msg.events) this.events.push(...(msg.events as EventOf<G>[]));
+          if (msg.ack) {
+            const done = new Set(msg.ack);
+            this.pending = this.pending.filter((p) => !done.has(p.id));
+          }
+          if (this.rules.sendRate > 0) return;
+          break;
+        }
         this.prev = this.state;
-        this.state = msg.state as StateOf<G>;
+        this.state = (msg.patch ? applyPatch(this.state, msg.patch) : msg.state) as StateOf<G>;
         this.tick = msg.tick;
         const now = this.now();
         if (this.viewAt && this.rules.sendRate > 0) this.viewGap = this.viewGap * 0.8 + Math.min(1000, now - this.viewAt) * 0.2;

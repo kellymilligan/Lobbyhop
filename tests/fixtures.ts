@@ -249,3 +249,59 @@ export const drift = defineStateSync<DriftState, DriftCmd>({
     }
   },
 });
+
+// ---------------------------------------------------------------------------
+// World: a persistent, lobby-less, delta-synced state-sync game. Entities live
+// in an object keyed by id; a few move each tick, most rest (like sleeping bodies).
+// ---------------------------------------------------------------------------
+
+export interface WorldThing {
+  x: number;
+  y: number;
+  /** Server-only (velocity); stripped from views. */
+  v: number;
+  owner: number;
+}
+export interface WorldState {
+  things: Record<string, WorldThing>;
+  next: number;
+  t: number;
+}
+export interface WorldView {
+  things: Record<string, { x: number; y: number; owner: number }>;
+  t: number;
+}
+export type WorldCmd = { type: 'spawn'; x: number } | { type: 'push'; id: string } | { type: 'join' } | { type: 'leave' };
+
+export const world = defineStateSync<WorldState, WorldCmd, Record<string, never>, never, WorldView>({
+  name: 'world',
+  version: 2,
+  tickRate: 20,
+  delta: true,
+  lobby: false,
+  idleMs: 2_000,
+  seats: { max: 8 },
+  hooks: { join: () => ({ type: 'join' }), idle: () => ({ type: 'leave' }) },
+  create: () => ({ things: {}, next: 1, t: 0 }),
+  apply(s, cmd, from) {
+    if (cmd.type === 'join' || cmd.type === 'leave') return from.system ? ok() : reject('Not allowed.');
+    if (cmd.type === 'spawn') {
+      s.things[String(s.next++)] = { x: cmd.x, y: 10, v: 0, owner: from.seat };
+      return ok();
+    }
+    const t = s.things[cmd.id];
+    if (!t) return reject('No such thing.');
+    t.v = 1;
+    return ok();
+  },
+  step(s) {
+    s.t++;
+    for (const [id, t] of Object.entries(s.things)) {
+      if (t.y > 0) t.y = Math.max(0, t.y - 1); // falls, then rests
+      if (t.v) t.x += t.v;
+      if (t.x > 50) delete s.things[id]; // pushed off the edge
+    }
+  },
+  view: (s) => ({ things: Object.fromEntries(Object.entries(s.things).map(([id, t]) => [id, { x: t.x, y: t.y, owner: t.owner }])), t: s.t }),
+  migrate: (old, from) => (from === 1 ? { things: (old as { things: Record<string, WorldThing> }).things, next: 99, t: 0 } : null),
+});

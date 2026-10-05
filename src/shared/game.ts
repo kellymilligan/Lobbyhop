@@ -82,6 +82,12 @@ interface GameBase<S, C, Settings, E> {
   name: string;
   /** Bump when state/command shapes change; out-of-date clients are asked to refresh. */
   version?: number;
+  /**
+   * Upgrade a saved game from an older `version` (persistent worlds). Return the
+   * new state, or null to discard it. Without this hook, saves from another
+   * version are ignored and the room starts fresh.
+   */
+  migrate?(state: unknown, fromVersion: number): S | null;
   /** Build the starting state. Must be deterministic given `setup`. */
   create(setup: Setup<Settings>): S;
   /** Validate and apply one command. Must be deterministic and must not throw. */
@@ -141,6 +147,13 @@ export interface StateSyncGame<S, C, Settings = Record<string, never>, E = never
   view?(state: S, seat: number | null): V;
   /** State broadcasts per second when `tickRate > 0` (default: tickRate, max 30). Changes only: unchanged views aren't resent. */
   sendRate?: number;
+  /**
+   * Send only what changed in each view (a JSON patch) instead of the whole
+   * view. Big win for large states where little changes per tick (worlds,
+   * physics with sleeping bodies). Keep collections as objects keyed by id so
+   * entries diff individually; arrays are resent whole when they change.
+   */
+  delta?: boolean;
 }
 
 export type AnyGame = LockstepGame<any, any, any, any> | StateSyncGame<any, any, any, any, any>;
