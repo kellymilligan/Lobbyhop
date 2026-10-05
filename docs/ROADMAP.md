@@ -29,6 +29,19 @@ approach, and what to think about. Read it as a plan and a primer.
 - **UI:** a framework-free lobby and status chip.
 - **Published** to npm as `lobbyhop`, with provenance via trusted publishing.
 
+## Shipped in v0.3 (persistent worlds)
+
+- **Delta state sync** (`delta: true`): JSON patches per audience, falling
+  back to the full view when a patch is larger.
+- **Never-expiring rooms** (`emptyTtlMs: null`), and **`migrate`** for saved
+  worlds across versions.
+- **Quiet saves:** unchanged state isn't rewritten.
+- **Capacity:** `maxConnections` on Cloudflare; lobby-less rooms seat late
+  arrivals without a `join` hook.
+- **`examples/blocks`:** a persistent 3D block builder. Box3D runs in the
+  Durable Object (compiled to WebAssembly) and three.js renders it. It comes
+  with a deploy workflow.
+
 ## Next
 
 ### 1. Replays
@@ -184,7 +197,6 @@ This proves the kit against the game it came from. Expect:
 - An `identify` hook for custom auth, and `meta` validation per game.
 - Room passwords (an optional `?key=`).
 - Per-room max connections and spectator caps in options.
-- Delta-compressed state sync views for big states.
 - Binary encoding (MessagePack) behind a flag, for high-rate games.
 - A React and Preact hooks package (`useRoom(room)`). It's tiny, because
   `RoomClient` is already observable.

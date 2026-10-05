@@ -22,3 +22,4 @@ To integrate, follow skills/lobbyhop/SKILL.md. Docs ship in the package: `npx lo
 - [arena](examples/arena/game.ts): real-time lockstep, interpolation, ghosts, bots
 - [tictactoe](examples/tictactoe/game.ts): turn-based state sync
 - [cursors](examples/cursors/game.ts): lobby-less real-time state sync
+- [blocks](examples/blocks/game.ts): persistent shared 3D world: Box3D physics on the server, delta sync, three.js

@@ -112,6 +112,7 @@ npx vite build && npx wrangler dev    # http://localhost:8787
 | [`arena`](examples/arena) | Real-time lockstep on Canvas2D: interpolation, ghost walls, bots, idle takeover |
 | [`tictactoe`](examples/tictactoe) | Turn-based state sync with optimistic moves and spectators |
 | [`cursors`](examples/cursors) | Lobby-less real-time state sync: drop in, drop out |
+| [`blocks`](examples/blocks) | A persistent shared 3D block builder that never resets: Box3D physics in the Durable Object, three.js WebGPU, delta sync |
 
 ```sh
 git clone https://github.com/kellymilligan/lobbyhop && cd lobbyhop && npm install

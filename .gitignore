@@ -7,3 +7,4 @@
 dist
 dist-examples
 node_modules
+.rooms

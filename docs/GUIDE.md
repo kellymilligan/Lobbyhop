@@ -19,9 +19,10 @@ tests. The renderer doesn't matter: WebGPU, WebGL, Canvas2D and DOM all work.
 5. [Host the rooms](#host-the-rooms)
 6. [Test it](#test-it)
 7. [Hooks, drop-in rooms and late joiners](#hooks-drop-in-rooms-and-late-joiners)
-8. [Server options](#server-options)
-9. [Examples](#examples)
-10. [Retrofitting an existing game](#retrofitting-an-existing-game)
+8. [Persistent worlds](#persistent-worlds)
+9. [Server options](#server-options)
+10. [Examples](#examples)
+11. [Retrofitting an existing game](#retrofitting-an-existing-game)
 
 ## The five-minute version
 
@@ -467,10 +468,103 @@ apply(state, cmd, from) {
 
 - **Late joiners:** with a `join` hook, people arriving mid-game take the
   lowest free seat. Without one, they spectate until the next game.
-- **Drop-in rooms** (`lobby: false`): the room starts when the first person
-  arrives, and everyone else joins live through `join`. When a seat goes idle,
-  it's freed after `idle` fires, so a returning player joins afresh. Use this
-  for shared spaces and persistent worlds. See `examples/cursors`.
+- **Drop-in rooms** (`lobby: false`):
+  - The room starts when the first person arrives.
+  - Everyone after that gets a seat straight away; `join` is optional and
+    just lets the game react (spawn an avatar).
+  - When a seat goes idle, it's freed after `idle` fires, so a returning
+    player joins afresh.
+  - Use this for shared spaces and persistent worlds. See `examples/cursors`
+    and `examples/blocks`.
+
+## Persistent worlds
+
+One shared, long-running world that everyone visits, which stays as the last
+visitor left it: a shared canvas, a block builder, a garden, a museum.
+`examples/blocks` is a complete one, with Box3D physics, three.js and
+Cloudflare.
+
+**The recipe:**
+
+```ts
+// game.ts
+export const game = defineStateSync<State, Command, Settings, Event, View>({
+  name: 'garden',
+  version: 1,
+  tickRate: 60,          // or 0 for a world that only changes when someone acts
+  sendRate: 20,
+  delta: true,           // send only what changed
+  lobby: false,          // drop in, drop out
+  seats: { max: 32 },    // everyone beyond this watches
+  view: (s) => …,        // strip server-only data (velocities, internals)
+  migrate: (old, from) => …, // upgrade saved worlds when `version` changes
+  …
+});
+
+// worker.ts
+export const Room = createRoomServer(game, {
+  emptyTtlMs: null,      // never delete the world when everyone leaves
+  saveEveryMs: 2_000,    // small state: save often (a deploy loses at most this much)
+  maxConnections: 128,
+});
+
+// main.ts: everyone joins the same room
+const room = joinRoom(game, { room: roomFromUrl() ?? 'world' });
+```
+
+**How it behaves:**
+- **Empty world:** the clock stops and nothing simulates. The Durable Object
+  may be evicted; the next visitor wakes it and the saved world is restored
+  exactly.
+- **Saves:** at most every `saveEveryMs` while people are connected, only
+  when something changed, and when the last person leaves. A deploy or crash
+  loses at most `saveEveryMs` of changes.
+- **Version bumps:** `migrate(oldState, fromVersion)` upgrades the saved
+  world. Without it, a save from another version is ignored and the world
+  starts fresh, so add `migrate` before your first breaking change.
+
+**Delta sync (`delta: true`):**
+- Each update is a patch: only the keys that changed since the last update.
+  Joiners get a full snapshot first, then patches.
+- **Keep collections as objects keyed by id**
+  (`blocks: { "17": {…} }`), not arrays. Objects diff per entry; an array
+  that changes is resent whole.
+- **Quantise numbers you store** (positions to 1 mm, rotations to 1e-4).
+  Unchanged values stay byte-identical and never resend, and the JSON stays
+  small.
+- For a resting world, an update is a few bytes, or nothing at all.
+
+**Physics (or any engine with its own objects) in state sync:**
+- **State is the source of truth, as plain JSON:** positions, rotations and
+  velocities.
+- **Keep the engine's world in a cache keyed by the state object**
+  (`WeakMap<State, World>`). Rebuild it from JSON when it's missing: after a
+  restore, a deploy, or eviction.
+- **Each `step`:** run the engine, then write back only bodies that are
+  awake. Sleeping bodies don't change, so they cost nothing to sync.
+- **Restore resting bodies asleep,** so stacks don't twitch when the world
+  wakes.
+- **Engine requirements:**
+  - Compile it to a standalone WebAssembly module with no threads (Workers
+    have none).
+  - Inject the compiled module: Workers `import` `.wasm` files as modules,
+    and Node compiles them from bytes.
+  - `examples/blocks/physics` shows the whole pipeline for Box3D.
+
+**Interaction:**
+- Send intent ("grab block 7", "carry it toward here") at about 15 per
+  second.
+- The server pulls the body toward the target.
+- The client draws a ghost at the pointer immediately, so it feels direct
+  despite the round trip.
+
+**Things to decide:**
+- **Who may change what:** "free for all" is fine for an art piece.
+- **Capacity:** one room is one server in one place, so `seats.max` and
+  `maxConnections` bound it.
+- **Cost:** a world with people connected keeps its Durable Object awake. An
+  always-busy world is roughly 11,000 GB-s a day at 128 MB (check Cloudflare's
+  current pricing).
 
 ## Server options
 
@@ -482,10 +576,11 @@ Pass these to `createRoomServer(game, options)` or
 | `limits.inputsPerSecond` | 30 | Per connection, with a burst of twice that. Excess is rejected with "Slow down." |
 | `limits.chatPerSecond` | 1 | Burst of 5. |
 | `limits.maxMessageBytes` | 32768 | Larger messages are rejected. Connections are dropped after 20 malformed messages. |
-| `emptyTtlMs` | 15 min | An empty room is deleted after this long. |
+| `emptyTtlMs` | 15 min | An empty room is deleted after this long. `null` keeps it forever (persistent worlds). |
 | `saveEveryMs` | 10 s | How often to persist while playing. Saves also happen on start, game over, lobby changes and when the last player leaves. |
 | `chatHistory` | 50 | Chat lines kept for newcomers. |
 | `origins` | any | Allowed page origins for WebSockets, e.g. `['https://mygame.com']`. |
+| `maxConnections` | 64 | Connections per room, players plus spectators. |
 | `debug` | false | Log room events. |
 
 ## Examples
@@ -496,6 +591,7 @@ Pass these to `createRoomServer(game, options)` or
 | `examples/arena` | lockstep, 30 Hz | Real-time Canvas2D; interpolation; ghost walls; bots in the sim; idle takeover; e2e script; determinism scenario; bot brain |
 | `examples/tictactoe` | state sync, turn-based | Optimistic moves; spectators; no game loop |
 | `examples/cursors` | state sync, 20 Hz, no lobby | Drop-in and drop-out; snapshot interpolation; events |
+| `examples/blocks` | state sync, 60 Hz, delta, no lobby, persistent | A shared 3D block builder that never resets: Box3D physics (compiled to WebAssembly) in the Durable Object, three.js WebGPU with WebGL 2 fallback, ghost dragging, co-presence cursors, deploy workflow |
 
 ```sh
 npm run server arena              # build + wrangler dev on :8787

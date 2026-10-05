@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>Blocks · lobbyhop</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: radial-gradient(ellipse at 50% 25%, #f7f3ec 0%, #e2e8ef 55%, #c9d4e0 100%); font-family: ui-sans-serif, system-ui, sans-serif; color: #1d2433; }
+      canvas { display: block; touch-action: none; }
+      .bar, .help { position: fixed; left: 12px; display: flex; gap: 8px; align-items: center; padding: 6px 8px 6px 12px; border-radius: 99px; font-size: 13px; background: rgba(255,255,255,.55); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); border: 1px solid rgba(255,255,255,.7); box-shadow: 0 6px 24px rgba(30,40,60,.08); }
+      .bar { top: 12px; }
+      .help { bottom: 12px; padding: 6px 12px; color: rgba(29,36,51,.7); }
+      .bar input, .bar button { font: inherit; color: inherit; background: rgba(255,255,255,.6); border: 1px solid rgba(29,36,51,.12); border-radius: 99px; padding: 3px 10px; }
+      .bar input { width: 120px; } .bar button { cursor: pointer; }
+      #labels { position: fixed; inset: 0; pointer-events: none; }
+      .label { position: absolute; left: 0; top: 0; font-size: 12px; font-weight: 600; white-space: nowrap; text-shadow: 0 1px 2px rgba(255,255,255,.9); }
+      .lh-status { --lh-bg: rgba(255,255,255,.55); --lh-fg: #1d2433; --lh-border: rgba(255,255,255,.7); }
+      @media (max-width: 600px) { body .lh-status { top: 60px; } .help { font-size: 12px; right: 12px; } .help .desk { display: none; } }
+      @media (min-width: 601px) { .help .touch { display: none; } }
+    </style>
+  </head>
+  <body>
+    <div id="labels"></div>
+    <div class="bar"><span id="count"></span><input id="name" maxlength="20" aria-label="Your name" /><button id="share">Copy link</button></div>
+    <div class="help"><span class="desk">Drag a block to carry it · it lifts over others · scroll to raise · R to turn · drag empty space to look around</span><span class="touch">Drag a block to carry it · two fingers to look around</span></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

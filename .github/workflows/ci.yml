@@ -27,6 +27,8 @@ jobs:
       - run: node tools/e2e.mjs --example arena -n 2 --script examples/arena/e2e-actions.mjs --out out/e2e-wrangler
       - run: node tools/e2e.mjs --example arena -n 3 --node --script examples/arena/e2e-actions.mjs --out out/e2e-node
       - run: node tools/e2e.mjs --example tictactoe -n 3 --node --seconds 4 --out out/e2e-ttt
+      # The persistent physics world (Box3D in the Durable Object, three.js on the WebGL 2 fallback).
+      - run: node tools/e2e.mjs --example blocks -n 2 --seconds 5 --viewport 900x560 --out out/e2e-blocks
       - uses: actions/upload-artifact@v6
         if: always()
         with:

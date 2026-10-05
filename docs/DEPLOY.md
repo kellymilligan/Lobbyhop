@@ -103,6 +103,26 @@ with no extra setup.
 - Rate limits are on by default (30 inputs per second, 32 KB messages).
   Tune `limits` if your game needs more.
 
+### Deploy from GitHub Actions
+
+`.github/workflows/deploy-blocks.yml` deploys an example on every push to
+`main`; copy it for your own game.
+
+1. **Create an API token.** In Cloudflare, go to My Profile → API Tokens →
+   Create Token, and use the **Edit Cloudflare Workers** template.
+2. **Copy your Account ID.** It's under Workers & Pages → Overview, in the
+   right-hand column.
+3. **Add both as repository secrets:** repo → Settings → Secrets and
+   variables → Actions → New repository secret, named
+   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+4. **Push to `main`,** or run the workflow by hand (Actions → Deploy blocks
+   → Run workflow).
+
+The workflow:
+- skips with a notice when the secrets are missing;
+- gates the deploy on the example's tests;
+- builds the page, then runs `wrangler deploy`.
+
 ## Node (Fly.io, Railway, Render, a VPS, Docker)
 
 ```sh

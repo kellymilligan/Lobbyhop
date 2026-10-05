@@ -36,6 +36,7 @@ Read `npx lobbyhop docs cat CHOOSING.md`.
 |---|---|
 | **State sync** (`defineStateSync`) | The default. Turn-based, party, card and board games, co-op, shared spaces, anything with hidden information, or when the sim isn't deterministic. |
 | **Lockstep** (`defineLockstep`) | Many moving units (RTS, tower defence, sims) and a sim that is, or can be made, deterministic. The project already has `createGame` / `applyCommand` / `step` style code. |
+| **Persistent world** | One shared, long-running world that never resets (builders, canvases, physics toys): state sync with `delta: true`, `lobby: false`, `emptyTtlMs: null`, and a `migrate` hook. Read the GUIDE section "Persistent worlds" and copy `npx lobbyhop examples pull blocks`. |
 | **Neither yet** | Competitive twitch PvP (shooters, fighters). Tell the user: prediction and rollback are on the roadmap; offer state sync with client-authoritative movement as a stopgap. |
 
 **Rule of thumb for action games:** would a skilled player be upset if their

@@ -10,9 +10,10 @@ Shared by client and server.
 | Export | |
 |---|---|
 | `defineLockstep<S, C, Settings, E>(def)` | Lockstep game definition ([GUIDE](GUIDE.md#define-your-game)). Optional `canStart(seats, settings) → reason \| null` adds a start rule. |
-| `defineStateSync<S, C, Settings, E, View>(def)` | State-sync game definition. |
+| `defineStateSync<S, C, Settings, E, View>(def)` | State-sync game definition. `delta: true` sends patches instead of whole views. Both kinds take `migrate(oldState, fromVersion)` to upgrade saves. |
 | `ok(events?)`, `reject(reason)` | Return values for `apply`. |
 | `startBlocker(game, seats, settings)` | The shared start check (`seats.min`, then `canStart`). |
+| `diff(prev, next) → Patch`, `applyPatch(base, patch)`, `jsonEqual`, `cloneJson`, type `Patch` | The JSON deltas behind `delta: true`. A patch is a list of `[path, value]` sets and `[path]` deletes. `applyPatch` doesn't mutate `base`. |
 | `presets` | `turnBased`, `casual`, `realtime`, `strategy`, `action` ([CHOOSING](CHOOSING.md)). |
 | `DEFAULT_PALETTE` | Eight lobby colours. |
 | `PROTOCOL_VERSION` and types `ClientMsg`, `ServerMsg`, `MemberView`, `ChatLine`, `RoomPhase`, `StampedCommand` | Wire protocol ([PROTOCOL](PROTOCOL.md)). |
@@ -69,7 +70,7 @@ Shared by client and server.
 
 | Export | |
 |---|---|
-| `createRoomServer(game, options?)` | The Durable Object class. Export it under `class_name`. Options are the [server options](GUIDE.md#server-options). |
+| `createRoomServer(game, options?)` | The Durable Object class. Export it under `class_name`. Options are the [server options](GUIDE.md#server-options), plus `origins`, `maxConnections` and `debug`. Use `emptyTtlMs: null` for a persistent world. |
 | `createWorker({ binding?, assets?, prefix? })` | A Worker `{ fetch }`: rooms under the prefix, assets for everything else. |
 | `routeRooms(request, namespace, { prefix? }) → Promise<Response> \| null` | For custom Workers. |
 
@@ -84,7 +85,7 @@ Shared by client and server.
 | Export | |
 |---|---|
 | `RoomCore(game, io, options?)` | The platform-free room. Adapters call `onConnect`, `onMessage`, `onClose`, `pump`, `alarm`, `restore`, `serialize`. `room.state` is the authoritative game state (typed). |
-| Types `RoomIO` (`send`, `close`, `setClock`, `now`, `seed?`, `save?`, `schedule?`, `log?`), `RoomOptions`, `RoomLimits`, `RoomSave` | |
+| Types `RoomIO` (`send`, `close`, `setClock`, `now`, `seed?`, `save?(data, json?)`, `schedule?`, `log?`), `RoomOptions`, `RoomLimits`, `RoomSave` | `save` gets the JSON too, so adapters don't stringify twice. Unchanged saves are skipped. |
 | `LockstepEngine`, `StateSyncEngine` | The sync engines (used by `RoomCore`). |
 
 ## `lobbyhop/testing`

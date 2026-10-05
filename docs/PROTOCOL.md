@@ -7,7 +7,9 @@ adapter.
 
 - **URL:** `ws(s)://<host>/rooms/<code>`.
 - **Codes:** 3–32 characters from `[a-z0-9-]`, lowercased.
-- `PROTOCOL_VERSION = 2`. Version 2 added ready-up: the `ready` message and `MemberView.ready`.
+- `PROTOCOL_VERSION = 3`.
+  - Version 2 added ready-up: the `ready` message and `MemberView.ready`.
+  - Version 3 added delta state sync: `state.patch`.
 
 ## Client → server
 
@@ -34,7 +36,7 @@ adapter.
 | `{ t: 'room', phase, members, spectators, paused, settings, chat? }` | The room's public state, sent on every lobby change. Each member is `{ seat, name, colour, connected, host, ready, meta }`. `chat` (history) only goes to a newcomer. |
 | `{ t: 'snapshot', tick, state }` | Full state on start, join, rejoin and desync repair. Lockstep: the whole state. State sync: your view. Replace local state with it. |
 | `{ t: 'turn', at, upTo, cmds }` | Lockstep. Apply `cmds` (in order) when your tick equals `at`, before stepping; then you may simulate up to `upTo`. Each cmd is `{ s: seat, c: command, i?: id, y?: 1 }` (`y` marks server-issued commands). |
-| `{ t: 'state', tick, state, events?, ack? }` | State sync. Your current view, the events since the last update, and the ids of your inputs now reflected in it. |
+| `{ t: 'state', tick, state?, patch?, events?, ack? }` | State sync. Your current view (or, for `delta` games, a `patch` to apply to your last one), the events since the last update, and the ids of your inputs now reflected in it. With neither `state` nor `patch`, the view didn't change. |
 | `{ t: 'reject', id?, reason }` | An input (or action) was refused. |
 | `{ t: 'desync', tick }` | Lockstep. Your hash at `tick` didn't match; a snapshot follows. |
 | `{ t: 'chat', line: { seat, name, text, at } }` | A chat line. |
@@ -66,6 +68,19 @@ adapter.
   next hash check repairs the client.
 
 ## State sync semantics
+
+- **Delta games (`delta: true`):**
+  - A patch is a JSON array of operations on your last view: `[path, value]`
+    sets the value at `path` (an array of object keys); `[path]` deletes that
+    key.
+  - Plain objects are diffed per key; arrays and primitives are replaced
+    whole.
+  - Everyone who shares a view (all players without a per-seat `view`, or all
+    connections of one seat) shares a base, so the server diffs once per
+    update.
+  - A joiner's `snapshot` is that base, so the next patch applies cleanly.
+  - When a patch would be larger than the view, the full `state` is sent
+    instead.
 
 - **Inputs** are applied on arrival. On success they're acked inside the next
   `state` for that connection, and events are queued. On failure the sender

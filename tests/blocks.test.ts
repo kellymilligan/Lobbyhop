@@ -29,7 +29,10 @@ describe('blocks example', () => {
       expect(Math.abs(b.p[0])).toBeLessThan(BOUNDS.x);
       expect(Math.abs(b.p[2])).toBeLessThan(BOUNDS.z);
       expect(b.p[1]).toBeGreaterThan(0);
+      expect(b.p[1]).toBeLessThan(BOUNDS.height);
     }
+    // And the starting heap itself is under the ceiling.
+    for (const b of Object.values(game.create({ seed: 'any', seats: [], settings: {} }).blocks)) expect(b.p[1] + 1.5).toBeLessThan(BOUNDS.height);
   });
 
   it('a visitor can grab, carry and drop a block; others see it; nobody can steal it mid-carry', () => {

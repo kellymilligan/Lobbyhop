@@ -16,7 +16,7 @@ export type Vec3 = [number, number, number];
 export type Quat = [number, number, number, number];
 
 /** Inside dimensions of the invisible container (metres). */
-export const BOUNDS = { x: 7, z: 7, height: 12 };
+export const BOUNDS = { x: 10, z: 10, height: 12 };
 const TICK_RATE = 60;
 const BLOCKS = 100;
 
@@ -128,18 +128,20 @@ export const game = defineStateSync<State, Command, Record<string, never>, never
   hooks: { idle: () => ({ type: 'leave' }) },
 
   create({ seed }) {
+    if (BLOCKS > 100) throw new Error('the starting heap layout fits 100 blocks under the ceiling');
     // A loose heap in the middle; it tumbles into a pile on the first tick.
     const rng = seedRng(seed);
     const blocks: Record<string, Block> = {};
     for (let i = 0; i < BLOCKS; i++) {
       const s = SHAPES[nextInt(rng, SHAPES.length)];
-      const layer = Math.floor(i / 16);
-      const k = i % 16;
+      // A 5 × 5 grid, four layers high: always well under the ceiling.
+      const layer = Math.floor(i / 25);
+      const k = i % 25;
       const yaw = nextFloat(rng) * Math.PI;
       blocks[String(i + 1)] = {
         s: [...s],
         c: nextInt(rng, COLOURS.length),
-        p: [q3(((k % 4) - 1.5) * 2.2 + (nextFloat(rng) - 0.5) * 0.4), q3(1 + layer * 2.4), q3((Math.floor(k / 4) - 1.5) * 2.2 + (nextFloat(rng) - 0.5) * 0.4)],
+        p: [q3(((k % 5) - 2) * 2 + (nextFloat(rng) - 0.5) * 0.4), q3(1.2 + layer * 2.2), q3((Math.floor(k / 5) - 2) * 2 + (nextFloat(rng) - 0.5) * 0.4)],
         q: [0, q4(Math.sin(yaw / 2)), 0, q4(Math.cos(yaw / 2))],
         v: [0, 0, 0],
         w: [0, 0, 0],

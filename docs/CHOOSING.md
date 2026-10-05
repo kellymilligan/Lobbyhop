@@ -11,6 +11,7 @@ answers. lobbyhop ships two of them and leaves room for the others.
 | Board, card, word, trivia, turn-based strategy | State sync | `presets.turnBased` | Nothing happens between moves. The server holds the truth and can keep hands and roles secret. |
 | Party games, social deduction, drawing and guessing | State sync | `presets.casual` (10 Hz) | Timers and phases, light real-time, hidden info. |
 | Co-op, .io-style, shared canvases, virtual spaces, "rich experiences" | State sync | `presets.realtime` (20 Hz), often `lobby: false` | Smooth enough with interpolation, and no determinism burden. |
+| A persistent shared world (builders, gardens, physics toys) | State sync with `delta: true` | `lobby: false`, `emptyTtlMs: null` | One long-running room that saves itself. Only changes travel. See GUIDE "Persistent worlds" and `examples/blocks`. |
 | RTS, tower defence, colony and factory sims, lots of units | Lockstep | `presets.strategy` (30 Hz sim, 100 ms turns) | Thousands of units cost nothing on the wire. Only commands travel. |
 | Faster lockstep action (top-down arena, twin-stick vs AI) | Lockstep | `presets.action` (60 Hz, 50 ms turns) | Lower input delay at more messages per second. |
 | Shooters, fighting games, racing, platformers with PvP contact | *Prediction or rollback* | Not yet ([ROADMAP.md](ROADMAP.md)) | These need instant local response. See below for what to do today. |

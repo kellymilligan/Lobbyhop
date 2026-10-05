@@ -88,7 +88,8 @@
     "server": "node tools/server.mjs",
     "e2e": "node tools/e2e.mjs",
     "determinism": "node tools/determinism.mjs",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "deploy:blocks": "node tools/build-example.mjs blocks && wrangler deploy -c examples/blocks/wrangler.jsonc"
   },
   "peerDependencies": {
     "esbuild": ">=0.20",
